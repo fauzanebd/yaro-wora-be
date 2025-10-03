@@ -276,12 +276,4 @@ Full API documentation is available in:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## License
-
-This project is proprietary software for Yaro Wora Tourism.
-
-## Support
-
-For support, email your-email@example.com or create an issue in the repository.
-
 ---
