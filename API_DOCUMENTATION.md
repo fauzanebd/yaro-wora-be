@@ -31,7 +31,7 @@ https://api.yarowora.com/v1
       "subtitle": "Where untold stories and hidden beauty await to be discovered",
       "image_url": "https://api.yarowora.com/images/carousel/slide1.jpg",
       "alt_text": "Beautiful mountain landscape of Yaro Wora",
-      "order": 1,
+      "carousel_order": 1,
       "is_active": true
     }
   ],
@@ -1440,7 +1440,7 @@ All endpoints return standardized error responses:
 ## Image Upload Specifications
 
 - Supported formats: JPEG, PNG, WebP
-- Maximum file size: 10MB
+- Maximum file size: 4MB (configurable via MAX_FILE_UPLOAD_SIZE_IN_BYTES env variable)
 - Recommended dimensions:
   - Carousel images: 1920x1080px
   - Gallery images: 1200x800px minimum

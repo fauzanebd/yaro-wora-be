@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
 	"yaro-wora-be/config"
 	"yaro-wora-be/models"
@@ -82,6 +83,200 @@ func DeleteCarousel(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Carousel slide deleted successfully",
+	})
+}
+
+// =============================================================================
+// WHY VISIT MANAGEMENT
+// =============================================================================
+
+// CreateWhyVisit creates a new why visit item
+func CreateWhyVisit(c *fiber.Ctx) error {
+	var whyVisit models.WhyVisit
+	if err := c.BodyParser(&whyVisit); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	if err := config.DB.Create(&whyVisit).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to create why visit item",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(whyVisit)
+}
+
+// UpdateWhyVisit updates an existing why visit item
+func UpdateWhyVisit(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	var whyVisit models.WhyVisit
+	if err := config.DB.Where("id = ?", id).First(&whyVisit).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   true,
+			"message": "Why visit item not found",
+			"code":    "NOT_FOUND",
+		})
+	}
+
+	if err := c.BodyParser(&whyVisit); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	if err := config.DB.Save(&whyVisit).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to update why visit item",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(whyVisit)
+}
+
+// DeleteWhyVisit deletes a why visit item
+func DeleteWhyVisit(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	if err := config.DB.Delete(&models.WhyVisit{}, id).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to delete why visit item",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Why visit item deleted successfully",
+	})
+}
+
+// =============================================================================
+// GENERAL WHY VISIT CONTENT MANAGEMENT
+// =============================================================================
+
+// UpdateGeneralWhyVisitContent updates the general why visit content (singleton)
+func UpdateGeneralWhyVisitContent(c *fiber.Ctx) error {
+	var content models.GeneralWhyVisitContent
+	if err := c.BodyParser(&content); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	// Try to find existing content, create if not exists
+	var existingContent models.GeneralWhyVisitContent
+	if err := config.DB.First(&existingContent).Error; err != nil {
+		// Create new content
+		if err := config.DB.Create(&content).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   true,
+				"message": "Failed to create general why visit content",
+				"code":    "INTERNAL_ERROR",
+			})
+		}
+		return c.Status(fiber.StatusCreated).JSON(content)
+	}
+
+	// Update existing content
+	content.ID = existingContent.ID
+	if err := config.DB.Save(&content).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to update general why visit content",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(content)
+}
+
+// =============================================================================
+// SELLING POINTS MANAGEMENT
+// =============================================================================
+
+// CreateSellingPoint creates a new selling point
+func CreateSellingPoint(c *fiber.Ctx) error {
+	var sellingPoint models.SellingPoint
+	if err := c.BodyParser(&sellingPoint); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	if err := config.DB.Create(&sellingPoint).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to create selling point",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(sellingPoint)
+}
+
+// UpdateSellingPoint updates an existing selling point
+func UpdateSellingPoint(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	var sellingPoint models.SellingPoint
+	if err := config.DB.Where("id = ?", id).First(&sellingPoint).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   true,
+			"message": "Selling point not found",
+			"code":    "NOT_FOUND",
+		})
+	}
+
+	if err := c.BodyParser(&sellingPoint); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	if err := config.DB.Save(&sellingPoint).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to update selling point",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(sellingPoint)
+}
+
+// DeleteSellingPoint deletes a selling point
+func DeleteSellingPoint(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	if err := config.DB.Delete(&models.SellingPoint{}, id).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to delete selling point",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Selling point deleted successfully",
 	})
 }
 
@@ -204,6 +399,48 @@ func UpdatePricing(c *fiber.Ctx) error {
 }
 
 // =============================================================================
+// GENERAL WHY VISIT CONTENT MANAGEMENT
+// =============================================================================
+
+// UpdateGeneralPricingContent updates the general pricing content (singleton)
+func UpdateGeneralPricingContent(c *fiber.Ctx) error {
+	var content models.GeneralPricingContent
+	if err := c.BodyParser(&content); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	// Try to find existing content, create if not exists
+	var existingContent models.GeneralPricingContent
+	if err := config.DB.First(&existingContent).Error; err != nil {
+		// Create new content
+		if err := config.DB.Create(&content).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   true,
+				"message": "Failed to create general pricing content",
+				"code":    "INTERNAL_ERROR",
+			})
+		}
+		return c.Status(fiber.StatusCreated).JSON(content)
+	}
+
+	// Update existing content
+	content.ID = existingContent.ID
+	if err := config.DB.Save(&content).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to update general pricing content",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(content)
+}
+
+// =============================================================================
 // PROFILE MANAGEMENT
 // =============================================================================
 
@@ -261,11 +498,21 @@ func UploadContent(c *fiber.Ctx) error {
 		})
 	}
 
+	// Validate file size
+	maxSize := int64(config.AppConfig.MaxFileUploadSize)
+	if file.Size > maxSize {
+		return c.Status(fiber.StatusRequestEntityTooLarge).JSON(fiber.Map{
+			"error":   true,
+			"message": fmt.Sprintf("File size exceeds maximum limit of %d MB", maxSize/(1024*1024)),
+			"code":    "FILE_TOO_LARGE",
+		})
+	}
+
 	// Determine upload folder based on content type or form field
 	folder := c.FormValue("folder", "uploads")
 
-	// Upload to R2
-	fileURL, err := utils.Storage.UploadImage(file, folder)
+	// Upload to R2 with thumbnail generation and dimension detection
+	uploadResponse, err := utils.Storage.UploadImageWithThumbnail(file, folder)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
@@ -274,19 +521,7 @@ func UploadContent(c *fiber.Ctx) error {
 		})
 	}
 
-	// Generate thumbnail URL (you might want to implement actual thumbnail generation)
-	thumbnailURL := fileURL // For now, same as original
-
-	return c.JSON(utils.UploadResponse{
-		Success:      true,
-		FileURL:      fileURL,
-		ThumbnailURL: thumbnailURL,
-		FileSize:     file.Size,
-		Dimensions: &utils.ImageDimensions{
-			Width:  1200, // You might want to get actual dimensions
-			Height: 800,
-		},
-	})
+	return c.JSON(uploadResponse)
 }
 
 // =============================================================================

@@ -12,7 +12,7 @@ import (
 func GetCarousel(c *fiber.Ctx) error {
 	var carousels []models.Carousel
 
-	if err := config.DB.Where("is_active = ?", true).Order("order ASC, created_at ASC").Find(&carousels).Error; err != nil {
+	if err := config.DB.Where("is_active = ?", true).Order("carousel_order ASC, created_at ASC").Find(&carousels).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
 			"message": "Failed to fetch carousel data",
@@ -25,6 +25,67 @@ func GetCarousel(c *fiber.Ctx) error {
 		"meta": fiber.Map{
 			"total":              len(carousels),
 			"auto_play_interval": 6000,
+		},
+	})
+}
+
+// GetWhyVisit returns all why visit items
+func GetWhyVisit(c *fiber.Ctx) error {
+	var whyVisit []models.WhyVisit
+
+	if err := config.DB.Order("created_at ASC").Find(&whyVisit).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to fetch why visit data",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"data": whyVisit,
+		"meta": fiber.Map{
+			"total": len(whyVisit),
+		},
+	})
+}
+
+// GetGeneralWhyVisitContent returns the general why visit content
+func GetGeneralWhyVisitContent(c *fiber.Ctx) error {
+	var content models.GeneralWhyVisitContent
+
+	if err := config.DB.First(&content).Error; err != nil {
+		// Return empty content if not found
+		return c.JSON(fiber.Map{
+			"data": fiber.Map{
+				"why_visit_section_title":          "",
+				"why_visit_section_title_id":       "",
+				"why_visit_section_description":    "",
+				"why_visit_section_description_id": "",
+			},
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"data": content,
+	})
+}
+
+// GetSellingPoints returns all active selling points
+func GetSellingPoints(c *fiber.Ctx) error {
+	var sellingPoints []models.SellingPoint
+
+	if err := config.DB.Where("is_active = ?", true).Order("selling_point_order ASC, created_at ASC").Find(&sellingPoints).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to fetch selling points data",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"data": sellingPoints,
+		"meta": fiber.Map{
+			"total": len(sellingPoints),
 		},
 	})
 }
@@ -83,18 +144,47 @@ func GetPricing(c *fiber.Ctx) error {
 	data := make(map[string]interface{})
 	for _, pricing := range pricings {
 		data[pricing.Type] = fiber.Map{
-			"title":        pricing.Title,
-			"subtitle":     pricing.Subtitle,
-			"adult_price":  pricing.AdultPrice,
-			"infant_price": pricing.InfantPrice,
-			"currency":     pricing.Currency,
-			"description":  pricing.Description,
+			"type":                 pricing.Type,
+			"title":                pricing.Title,
+			"title_id":             pricing.TitleID,
+			"subtitle":             pricing.Subtitle,
+			"subtitle_id":          pricing.SubtitleID,
+			"image_url":            pricing.ImageURL,
+			"thumbnail_url":        pricing.ThumbnailURL,
+			"color":                pricing.PrimaryColor,
+			"start_gradient_color": pricing.StartGradientColor,
+			"end_gradient_color":   pricing.EndGradientColor,
+			"adult_price":          pricing.AdultPrice,
+			"infant_price":         pricing.InfantPrice,
+			"currency":             pricing.Currency,
+			"description":          pricing.Description,
 		}
 	}
 
 	return c.JSON(fiber.Map{
 		"data":         data,
 		"last_updated": "2024-01-15T10:30:00Z", // You might want to track this properly
+	})
+}
+
+// GetGeneralPricingContent returns the general pricing content
+func GetGeneralPricingContent(c *fiber.Ctx) error {
+	var content models.GeneralPricingContent
+
+	if err := config.DB.First(&content).Error; err != nil {
+		// Return empty content if not found
+		return c.JSON(fiber.Map{
+			"data": fiber.Map{
+				"general_pricing_section_title":          "",
+				"general_pricing_section_title_id":       "",
+				"general_pricing_section_description":    "",
+				"general_pricing_section_description_id": "",
+			},
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"data": content,
 	})
 }
 

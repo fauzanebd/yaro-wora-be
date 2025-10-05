@@ -121,3 +121,139 @@ func (s *SearchHelper) IDSearch(db *gorm.DB, id string) *gorm.DB {
 	// With citext ID fields, this works case-insensitively
 	return db.Where("id = ?", id)
 }
+
+// FullTextSearch performs PostgreSQL full-text search using tsvector
+// This is MUCH faster than ILIKE for large text content
+// Deprecated: Use FullTextSearchLang instead for multi-language support
+func (s *SearchHelper) FullTextSearch(db *gorm.DB, searchTerm string) *gorm.DB {
+	return s.FullTextSearchLang(db, searchTerm, "en")
+}
+
+// FullTextSearchLang performs full-text search with language support
+// lang: "en" for English, "id" for Indonesian
+func (s *SearchHelper) FullTextSearchLang(db *gorm.DB, searchTerm string, lang string) *gorm.DB {
+	if searchTerm == "" {
+		return db
+	}
+
+	// Convert search term to tsquery format
+	// Multiple words are ANDed together with &
+	query := strings.ReplaceAll(strings.TrimSpace(searchTerm), " ", " & ")
+
+	// Choose the appropriate search vector column based on language
+	vectorColumn := "search_vector_en"
+	tsConfig := "english"
+	if lang == "id" || lang == "ID" {
+		vectorColumn = "search_vector_id"
+		tsConfig = "simple" // Indonesian uses simple config (no stemming)
+	}
+
+	return db.Where(fmt.Sprintf("%s @@ to_tsquery('%s', ?)", vectorColumn, tsConfig), query)
+}
+
+// FullTextSearchWithRanking performs full-text search and orders by relevance
+// Deprecated: Use FullTextSearchWithRankingLang instead for multi-language support
+func (s *SearchHelper) FullTextSearchWithRanking(db *gorm.DB, searchTerm string) *gorm.DB {
+	return s.FullTextSearchWithRankingLang(db, searchTerm, "en")
+}
+
+// FullTextSearchWithRankingLang performs full-text search with ranking and language support
+// lang: "en" for English, "id" for Indonesian
+func (s *SearchHelper) FullTextSearchWithRankingLang(db *gorm.DB, searchTerm string, lang string) *gorm.DB {
+	if searchTerm == "" {
+		return db
+	}
+
+	query := strings.ReplaceAll(strings.TrimSpace(searchTerm), " ", " & ")
+
+	// Choose the appropriate search vector column based on language
+	vectorColumn := "search_vector_en"
+	tsConfig := "english"
+	if lang == "id" || lang == "ID" {
+		vectorColumn = "search_vector_id"
+		tsConfig = "simple"
+	}
+
+	whereClause := fmt.Sprintf("%s @@ to_tsquery('%s', ?)", vectorColumn, tsConfig)
+	rankExpr := fmt.Sprintf("ts_rank(%s, to_tsquery('%s', ?))", vectorColumn, tsConfig)
+
+	return db.
+		Where(whereClause, query).
+		Order(gorm.Expr(rankExpr+" DESC", query))
+}
+
+// FullTextSearchOr performs full-text search with OR logic (any word matches)
+// Deprecated: Use FullTextSearchOrLang instead for multi-language support
+func (s *SearchHelper) FullTextSearchOr(db *gorm.DB, searchTerm string) *gorm.DB {
+	return s.FullTextSearchOrLang(db, searchTerm, "en")
+}
+
+// FullTextSearchOrLang performs full-text search with OR logic and language support
+// lang: "en" for English, "id" for Indonesian
+func (s *SearchHelper) FullTextSearchOrLang(db *gorm.DB, searchTerm string, lang string) *gorm.DB {
+	if searchTerm == "" {
+		return db
+	}
+
+	// Multiple words are ORed together with |
+	query := strings.ReplaceAll(strings.TrimSpace(searchTerm), " ", " | ")
+
+	// Choose the appropriate search vector column based on language
+	vectorColumn := "search_vector_en"
+	tsConfig := "english"
+	if lang == "id" || lang == "ID" {
+		vectorColumn = "search_vector_id"
+		tsConfig = "simple"
+	}
+
+	return db.Where(fmt.Sprintf("%s @@ to_tsquery('%s', ?)", vectorColumn, tsConfig), query)
+}
+
+// UpdateSearchVector updates the search_vector field for full-text search
+// Call this after creating or updating records
+func (s *SearchHelper) UpdateSearchVector(db *gorm.DB, tableName string, fields []string, id interface{}) error {
+	// Build tsvector expression combining multiple fields with weights
+	var vectorParts []string
+	for i, field := range fields {
+		// Weight: A (highest) for first field, B for second, C for third, D for rest
+		weight := "D"
+		switch i {
+		case 0:
+			weight = "A"
+		case 1:
+			weight = "B"
+		case 2:
+			weight = "C"
+		}
+		vectorParts = append(vectorParts, fmt.Sprintf("setweight(to_tsvector('english', COALESCE(%s, '')), '%s')", field, weight))
+	}
+
+	vectorExpr := strings.Join(vectorParts, " || ")
+
+	sql := fmt.Sprintf("UPDATE %s SET search_vector = %s WHERE id = ?", tableName, vectorExpr)
+	return db.Exec(sql, id).Error
+}
+
+// UpdateNewsSearchVector updates search vector for news articles
+func (s *SearchHelper) UpdateNewsSearchVector(db *gorm.DB, id interface{}) error {
+	fields := []string{"title", "excerpt", "content"}
+	return s.UpdateSearchVector(db, "news_articles", fields, id)
+}
+
+// UpdateDestinationSearchVector updates search vector for destinations
+func (s *SearchHelper) UpdateDestinationSearchVector(db *gorm.DB, id interface{}) error {
+	fields := []string{"title", "description", "full_content"}
+	return s.UpdateSearchVector(db, "destinations", fields, id)
+}
+
+// UpdateFacilitySearchVector updates search vector for facilities
+func (s *SearchHelper) UpdateFacilitySearchVector(db *gorm.DB, id interface{}) error {
+	fields := []string{"name", "description", "full_content"}
+	return s.UpdateSearchVector(db, "facilities", fields, id)
+}
+
+// UpdateRegulationSearchVector updates search vector for regulations
+func (s *SearchHelper) UpdateRegulationSearchVector(db *gorm.DB, id interface{}) error {
+	fields := []string{"question", "answer"}
+	return s.UpdateSearchVector(db, "regulations", fields, id)
+}

@@ -1,16 +1,21 @@
 package models
 
-import "gorm.io/datatypes"
+import (
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
+)
 
 type Facility struct {
 	BaseModel
-	ID                 string         `json:"id" gorm:"primaryKey;type:citext"`
+	ID                 string         `json:"id" gorm:"primaryKey;type:text"`
 	Name               string         `json:"name" gorm:"type:citext;not null"`
 	NameID             string         `json:"name_id"`
 	Description        string         `json:"description" gorm:"type:text"`
 	DescriptionID      string         `json:"description_id" gorm:"type:text"`
 	FullContent        string         `json:"full_content" gorm:"type:text"`
 	FullContentID      string         `json:"full_content_id" gorm:"type:text"`
+	SearchVectorEN     string         `json:"-" gorm:"type:tsvector;index:,type:gin;column:search_vector_en"`
+	SearchVectorID     string         `json:"-" gorm:"type:tsvector;index:,type:gin;column:search_vector_id"`
 	ImageURL           string         `json:"image_url"`
 	ThumbnailURL       string         `json:"thumbnail_url"`
 	Category           string         `json:"category" gorm:"type:citext"` // accommodation, workshop, culinary, entertainment, activity, wellness, educational, adventure
@@ -59,7 +64,33 @@ type Booking struct {
 	ConfirmationEmailSent bool     `json:"confirmation_email_sent" gorm:"default:false"`
 }
 
-// Override the BaseModel ID field for string ID
 func (Facility) TableName() string {
 	return "facilities"
+}
+
+// BeforeCreate hook to update search vector
+func (f *Facility) BeforeCreate(tx *gorm.DB) error {
+	return f.updateSearchVector(tx)
+}
+
+// BeforeUpdate hook to update search vector
+func (f *Facility) BeforeUpdate(tx *gorm.DB) error {
+	return f.updateSearchVector(tx)
+}
+
+func (f *Facility) updateSearchVector(tx *gorm.DB) error {
+	sql := `
+		UPDATE facilities 
+		SET 
+			search_vector_en = 
+				setweight(to_tsvector('english', COALESCE(name, '')), 'A') ||
+				setweight(to_tsvector('english', COALESCE(description, '')), 'B') ||
+				setweight(to_tsvector('english', COALESCE(full_content, '')), 'C'),
+			search_vector_id = 
+				setweight(to_tsvector('simple', COALESCE(name_id, '')), 'A') ||
+				setweight(to_tsvector('simple', COALESCE(description_id, '')), 'B') ||
+				setweight(to_tsvector('simple', COALESCE(full_content_id, '')), 'C')
+		WHERE id = ?
+	`
+	return tx.Exec(sql, f.ID).Error
 }

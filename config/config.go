@@ -23,7 +23,8 @@ type Config struct {
 	R2AccessKey  string
 	R2SecretKey  string
 	R2BucketName string
-	R2Endpoint   string
+	R2Endpoint   string // S3 API endpoint for operations
+	R2PublicURL  string // Public URL for accessing files (r2.dev or custom domain)
 	R2Region     string
 
 	// Server
@@ -37,6 +38,9 @@ type Config struct {
 	// App
 	AppEnv     string
 	APIVersion string
+
+	// Upload
+	MaxFileUploadSize int // in bytes
 }
 
 var AppConfig *Config
@@ -61,6 +65,7 @@ func LoadConfig() {
 		R2SecretKey:  getEnv("R2_SECRET_KEY", ""),
 		R2BucketName: getEnv("R2_BUCKET_NAME", "yaro-wora-images"),
 		R2Endpoint:   getEnv("R2_ENDPOINT", ""),
+		R2PublicURL:  getEnv("R2_PUBLIC_URL", ""),
 		R2Region:     getEnv("R2_REGION", "auto"),
 
 		// Server
@@ -74,6 +79,9 @@ func LoadConfig() {
 		// App
 		AppEnv:     getEnv("APP_ENV", "development"),
 		APIVersion: getEnv("API_VERSION", "v1"),
+
+		// Upload - Default 4MB (4 * 1024 * 1024 = 4194304 bytes)
+		MaxFileUploadSize: getEnvAsInt("MAX_FILE_UPLOAD_SIZE_IN_BYTES", 4194304),
 	}
 }
 

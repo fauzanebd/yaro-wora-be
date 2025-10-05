@@ -13,8 +13,12 @@ func AutoMigrate() {
 		// Core models
 		&User{},
 		&Carousel{},
+		&WhyVisit{},
+		&GeneralWhyVisitContent{},
+		&SellingPoint{},
 		&Attraction{},
 		&Pricing{},
+		&GeneralPricingContent{},
 		&Profile{},
 
 		// Destination models

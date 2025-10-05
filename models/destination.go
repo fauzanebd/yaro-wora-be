@@ -1,16 +1,21 @@
 package models
 
-import "gorm.io/datatypes"
+import (
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
+)
 
 type Destination struct {
 	BaseModel
-	ID                  string         `json:"id" gorm:"primaryKey;type:citext"`
+	ID                  string         `json:"id" gorm:"primaryKey;type:text"`
 	Title               string         `json:"title" gorm:"type:citext;not null"`
 	TitleID             string         `json:"title_id"`
 	Description         string         `json:"description" gorm:"type:text"`
 	DescriptionID       string         `json:"description_id" gorm:"type:text"`
 	FullContent         string         `json:"full_content" gorm:"type:text"`
 	FullContentID       string         `json:"full_content_id" gorm:"type:text"`
+	SearchVectorEN      string         `json:"-" gorm:"type:tsvector;index:,type:gin;column:search_vector_en"`
+	SearchVectorID      string         `json:"-" gorm:"type:tsvector;index:,type:gin;column:search_vector_id"`
 	ImageURL            string         `json:"image_url"`
 	ThumbnailURL        string         `json:"thumbnail_url"`
 	HeroImageURL        string         `json:"hero_image_url"`
@@ -43,7 +48,33 @@ type Destination struct {
 	SortOrder           int            `json:"sort_order" gorm:"default:0"`
 }
 
-// Override the BaseModel ID field for string ID
 func (Destination) TableName() string {
 	return "destinations"
+}
+
+// BeforeCreate hook to update search vector
+func (d *Destination) BeforeCreate(tx *gorm.DB) error {
+	return d.updateSearchVector(tx)
+}
+
+// BeforeUpdate hook to update search vector
+func (d *Destination) BeforeUpdate(tx *gorm.DB) error {
+	return d.updateSearchVector(tx)
+}
+
+func (d *Destination) updateSearchVector(tx *gorm.DB) error {
+	sql := `
+		UPDATE destinations 
+		SET 
+			search_vector_en = 
+				setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
+				setweight(to_tsvector('english', COALESCE(description, '')), 'B') ||
+				setweight(to_tsvector('english', COALESCE(full_content, '')), 'C'),
+			search_vector_id = 
+				setweight(to_tsvector('simple', COALESCE(title_id, '')), 'A') ||
+				setweight(to_tsvector('simple', COALESCE(description_id, '')), 'B') ||
+				setweight(to_tsvector('simple', COALESCE(full_content_id, '')), 'C')
+		WHERE id = ?
+	`
+	return tx.Exec(sql, d.ID).Error
 }

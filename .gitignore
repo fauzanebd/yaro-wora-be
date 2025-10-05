@@ -58,3 +58,6 @@ build-errors.log
 # Coverage files
 coverage.out
 coverage.html
+
+# Documentation files
+docs/
