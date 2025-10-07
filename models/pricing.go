@@ -20,8 +20,10 @@ type Pricing struct {
 
 type GeneralPricingContent struct {
 	BaseModel
-	GeneralPricingSectionTitle         string `json:"general_pricing_section_title"`
-	GeneralPricingSectionTitleID       string `json:"general_pricing_section_title_id"`
+	GeneralPricingSectionTitlePart1    string `json:"general_pricing_section_title_part_1"`
+	GeneralPricingSectionTitlePart1ID  string `json:"general_pricing_section_title_part_1_id"`
+	GeneralPricingSectionTitlePart2    string `json:"general_pricing_section_title_part_2"`
+	GeneralPricingSectionTitlePart2ID  string `json:"general_pricing_section_title_part_2_id"`
 	GeneralPricingSectionDescription   string `json:"general_pricing_section_description"`
 	GeneralPricingSectionDescriptionID string `json:"general_pricing_section_description_id"`
 }

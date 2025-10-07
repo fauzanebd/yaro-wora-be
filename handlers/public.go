@@ -52,19 +52,12 @@ func GetWhyVisit(c *fiber.Ctx) error {
 // GetGeneralWhyVisitContent returns the general why visit content
 func GetGeneralWhyVisitContent(c *fiber.Ctx) error {
 	var content models.GeneralWhyVisitContent
-
 	if err := config.DB.First(&content).Error; err != nil {
 		// Return empty content if not found
 		return c.JSON(fiber.Map{
-			"data": fiber.Map{
-				"why_visit_section_title":          "",
-				"why_visit_section_title_id":       "",
-				"why_visit_section_description":    "",
-				"why_visit_section_description_id": "",
-			},
+			"data": models.GeneralWhyVisitContent{},
 		})
 	}
-
 	return c.JSON(fiber.Map{
 		"data": content,
 	})
@@ -96,8 +89,8 @@ func GetAttractions(c *fiber.Ctx) error {
 	query := config.DB.Model(&models.Attraction{})
 
 	// Apply featured filter if specified
-	if featured := c.Query("featured"); featured == "true" {
-		query = query.Where("is_featured = ?", true)
+	if active := c.Query("active"); active == "true" {
+		query = query.Where("active = ?", true)
 	}
 
 	// Apply limit
@@ -115,16 +108,30 @@ func GetAttractions(c *fiber.Ctx) error {
 		})
 	}
 
-	// Count featured attractions
-	var featuredCount int64
-	config.DB.Model(&models.Attraction{}).Where("is_featured = ?", true).Count(&featuredCount)
+	// Count active attractions
+	var activeCount int64
+	config.DB.Model(&models.Attraction{}).Where("active = ?", true).Count(&activeCount)
 
 	return c.JSON(fiber.Map{
 		"data": attractions,
 		"meta": fiber.Map{
-			"total":          len(attractions),
-			"featured_count": featuredCount,
+			"total":        len(attractions),
+			"active_count": activeCount,
 		},
+	})
+}
+
+// GetGeneralAttractionContent returns the general attraction content
+func GetGeneralAttractionContent(c *fiber.Ctx) error {
+	var content models.GeneralAttractionContent
+	if err := config.DB.First(&content).Error; err != nil {
+		// Return empty content if not found
+		return c.JSON(fiber.Map{
+			"data": models.GeneralAttractionContent{},
+		})
+	}
+	return c.JSON(fiber.Map{
+		"data": content,
 	})
 }
 
@@ -141,48 +148,42 @@ func GetPricing(c *fiber.Ctx) error {
 	}
 
 	// Transform to the expected format
-	data := make(map[string]interface{})
-	for _, pricing := range pricings {
-		data[pricing.Type] = fiber.Map{
+	results := make([]fiber.Map, len(pricings))
+	for i, pricing := range pricings {
+		results[i] = fiber.Map{
 			"type":                 pricing.Type,
 			"title":                pricing.Title,
 			"title_id":             pricing.TitleID,
 			"subtitle":             pricing.Subtitle,
 			"subtitle_id":          pricing.SubtitleID,
+			"adult_price":          pricing.AdultPrice,
+			"infant_price":         pricing.InfantPrice,
+			"currency":             pricing.Currency,
+			"description":          pricing.Description,
 			"image_url":            pricing.ImageURL,
 			"thumbnail_url":        pricing.ThumbnailURL,
 			"color":                pricing.PrimaryColor,
 			"start_gradient_color": pricing.StartGradientColor,
 			"end_gradient_color":   pricing.EndGradientColor,
-			"adult_price":          pricing.AdultPrice,
-			"infant_price":         pricing.InfantPrice,
-			"currency":             pricing.Currency,
-			"description":          pricing.Description,
+			"created_at":           pricing.CreatedAt,
+			"updated_at":           pricing.UpdatedAt,
 		}
 	}
 
 	return c.JSON(fiber.Map{
-		"data":         data,
-		"last_updated": "2024-01-15T10:30:00Z", // You might want to track this properly
+		"data": results,
 	})
 }
 
 // GetGeneralPricingContent returns the general pricing content
 func GetGeneralPricingContent(c *fiber.Ctx) error {
 	var content models.GeneralPricingContent
-
 	if err := config.DB.First(&content).Error; err != nil {
 		// Return empty content if not found
 		return c.JSON(fiber.Map{
-			"data": fiber.Map{
-				"general_pricing_section_title":          "",
-				"general_pricing_section_title_id":       "",
-				"general_pricing_section_description":    "",
-				"general_pricing_section_description_id": "",
-			},
+			"data": models.GeneralPricingContent{},
 		})
 	}
-
 	return c.JSON(fiber.Map{
 		"data": content,
 	})

@@ -357,6 +357,49 @@ func DeleteAttraction(c *fiber.Ctx) error {
 }
 
 // =============================================================================
+// GENERAL ATTRACTION CONTENT MANAGEMENT
+// =============================================================================
+
+// UpdateGeneralAttractionContent updates the general attraction content (singleton)
+func UpdateGeneralAttractionContent(c *fiber.Ctx) error {
+	var content models.GeneralAttractionContent
+	if err := c.BodyParser(&content); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	// Try to find existing content, create if not exists
+	var existingContent models.GeneralAttractionContent
+	if err := config.DB.First(&existingContent).Error; err != nil {
+		// Create new content
+		if err := config.DB.Create(&content).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   true,
+				"message": "Failed to create general attraction content",
+				"code":    "INTERNAL_ERROR",
+			})
+		}
+		return c.Status(fiber.StatusCreated).JSON(content)
+	}
+
+	// Update existing content
+	content.ID = existingContent.ID
+	if err := config.DB.Save(&content).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to update general attraction content",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(content)
+}
+
+
+// =============================================================================
 // PRICING MANAGEMENT
 // =============================================================================
 

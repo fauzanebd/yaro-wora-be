@@ -11,8 +11,10 @@ type WhyVisit struct {
 
 type GeneralWhyVisitContent struct {
 	BaseModel
-	WhyVisitSectionTitle         string `json:"why_visit_section_title"`
-	WhyVisitSectionTitleID       string `json:"why_visit_section_title_id"`
+	WhyVisitSectionTitlePart1    string `json:"why_visit_section_title_part_1"`
+	WhyVisitSectionTitlePart1ID  string `json:"why_visit_section_title_part_1_id"`
+	WhyVisitSectionTitlePart2    string `json:"why_visit_section_title_part_2"`
+	WhyVisitSectionTitlePart2ID  string `json:"why_visit_section_title_part_2_id"`
 	WhyVisitSectionDescription   string `json:"why_visit_section_description"`
 	WhyVisitSectionDescriptionID string `json:"why_visit_section_description_id"`
 }

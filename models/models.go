@@ -17,6 +17,7 @@ func AutoMigrate() {
 		&GeneralWhyVisitContent{},
 		&SellingPoint{},
 		&Attraction{},
+		&GeneralAttractionContent{},
 		&Pricing{},
 		&GeneralPricingContent{},
 		&Profile{},

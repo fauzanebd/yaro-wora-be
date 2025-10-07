@@ -34,6 +34,8 @@ func SetupAdminRoutes(api fiber.Router) {
 	admin.Put("/attractions/:id", handlers.UpdateAttraction)
 	admin.Delete("/attractions/:id", handlers.DeleteAttraction)
 
+	admin.Put("/attraction-content", handlers.UpdateGeneralAttractionContent)
+
 	admin.Put("/pricing", handlers.UpdatePricing)
 
 	admin.Put("/pricing-content", handlers.UpdateGeneralPricingContent)

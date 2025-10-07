@@ -14,6 +14,7 @@ func SetupPublicRoutes(api fiber.Router) {
 	api.Get("/why-visit-content", handlers.GetGeneralWhyVisitContent)
 	api.Get("/selling-points", handlers.GetSellingPoints)
 	api.Get("/attractions", handlers.GetAttractions)
+	api.Get("/attraction-content", handlers.GetGeneralAttractionContent)
 	api.Get("/pricing", handlers.GetPricing)
 	api.Get("/pricing-content", handlers.GetGeneralPricingContent)
 

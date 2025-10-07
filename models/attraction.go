@@ -4,21 +4,27 @@ import "gorm.io/datatypes"
 
 type Attraction struct {
 	BaseModel
-	Title              string         `json:"title" gorm:"type:citext;not null"`
-	TitleID            string         `json:"title_id" gorm:"type:citext;not null"`
-	ShortDescription   string         `json:"short_description" gorm:"type:citext"`
-	ShortDescriptionID string         `json:"short_description_id" gorm:"type:citext"`
-	FullDescription    string         `json:"full_description" gorm:"type:citext"`
-	FullDescriptionID  string         `json:"full_description_id" gorm:"type:citext"`
-	ImageURL           string         `json:"image_url"`
-	Highlights         datatypes.JSON `json:"highlights" gorm:"type:jsonb"`    // array of strings
-	HighlightsID       datatypes.JSON `json:"highlights_id" gorm:"type:jsonb"` // array of strings
-	DurationMinutes    int            `json:"duration_minutes"`
-	Difficulty         string         `json:"difficulty"` // easy, medium, hard
-	DifficultyID       string         `json:"difficulty_id" gorm:"type:citext"`
-	PriceRange         string         `json:"price_range"` // "50000-100000"
-	IsFeatured         bool           `json:"is_featured" gorm:"default:false"`
-	SortOrder          int            `json:"sort_order" gorm:"default:0"`
+	Title         string         `json:"title" gorm:"type:citext;not null"`
+	TitleID       string         `json:"title_id" gorm:"type:citext;not null"`
+	Subtitle      string         `json:"subtitle" gorm:"type:citext"`
+	SubtitleID    string         `json:"subtitle_id" gorm:"type:citext"`
+	Description   string         `json:"description" gorm:"type:citext"`
+	DescriptionID string         `json:"description_id" gorm:"type:citext"`
+	ImageURL      string         `json:"image_url"`
+	Highlights    datatypes.JSON `json:"highlights" gorm:"type:jsonb"`    // array of strings
+	HighlightsID  datatypes.JSON `json:"highlights_id" gorm:"type:jsonb"` // array of strings
+	SortOrder     int            `json:"sort_order" gorm:"default:0"`
+	Active        bool           `json:"active" gorm:"default:true"`
+}
+
+type GeneralAttractionContent struct {
+	BaseModel
+	AttractionSectionTitlePart1    string `json:"attraction_section_title_part_1"`
+	AttractionSectionTitlePart1ID  string `json:"attraction_section_title_part_1_id"`
+	AttractionSectionTitlePart2    string `json:"attraction_section_title_part_2"`
+	AttractionSectionTitlePart2ID  string `json:"attraction_section_title_part_2_id"`
+	AttractionSectionDescription   string `json:"attraction_section_description"`
+	AttractionSectionDescriptionID string `json:"attraction_section_description_id"`
 }
 
 // Override the BaseModel ID field for string ID
