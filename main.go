@@ -26,10 +26,10 @@ func main() {
 	models.AutoMigrate()
 
 	// Seed initial data
-	if config.AppConfig.AppEnv == "development" {
-		// Import migrations package
-		migrations.SeedData()
-	}
+	// if config.AppConfig.AppEnv == "development" {
+	// Import migrations package
+	migrations.SeedData()
+	// }
 
 	// Initialize storage
 	if err := utils.InitStorage(); err != nil {
