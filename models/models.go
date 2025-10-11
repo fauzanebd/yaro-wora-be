@@ -20,30 +20,48 @@ func AutoMigrate() {
 		&GeneralAttractionContent{},
 		&Pricing{},
 		&GeneralPricingContent{},
-		&Profile{},
+
+		// Profile Page Content models
+		&ProfilePageContent{},
 
 		// Destination models
 		&Destination{},
+		&DestinationDetailSection{},
+		&DestinationPageContent{},
+		&DestinationCategory{},
 
 		// Gallery models
-		&GalleryCategory{},
+		&GalleryPageContent{},
 		&GalleryImage{},
+		&GalleryCategory{},
 
 		// Regulation models
+		&RegulationPageContent{},
 		&RegulationCategory{},
 		&Regulation{},
 
 		// Facility models
 		&Facility{},
-		&Booking{},
+		&FacilityCategory{},
+		&FacilityPageContent{},
+		&FacilityDetailSection{},
 
 		// News models
-		&NewsCategory{},
 		&NewsArticle{},
+		&NewsCategory{},
+		&NewsAuthor{},
+		&NewsPageContent{},
+
+		// Heritage models
+		&Heritage{},
+		&HeritagePageContent{},
 
 		// Contact models
-		&ContactSubmission{},
+		&ContactContent{},
 		&ContactInfo{},
+
+		// Analytics models
+		&Visitor{},
 	)
 
 	if err != nil {

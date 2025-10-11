@@ -39,38 +39,38 @@ func SearchUsers(c *fiber.Ctx) error {
 	})
 }
 
-// SearchContactsByEmail demonstrates citext email search
-func SearchContactsByEmail(c *fiber.Ctx) error {
-	email := c.Query("email", "")
+// // SearchContactsByEmail demonstrates citext email search
+// func SearchContactsByEmail(c *fiber.Ctx) error {
+// 	email := c.Query("email", "")
 
-	if email == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   true,
-			"message": "Email parameter is required",
-			"code":    "BAD_REQUEST",
-		})
-	}
+// 	if email == "" {
+// 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+// 			"error":   true,
+// 			"message": "Email parameter is required",
+// 			"code":    "BAD_REQUEST",
+// 		})
+// 	}
 
-	var contacts []models.ContactSubmission
+// 	var contacts []models.ContactSubmission
 
-	// With citext email field, this automatically works case-insensitively
-	// "TEST@EXAMPLE.COM", "test@example.com", "Test@Example.com" all match
-	if err := utils.Search.EmailSearch(config.DB, email).Find(&contacts).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   true,
-			"message": "Failed to search contacts",
-			"code":    "INTERNAL_ERROR",
-		})
-	}
+// 	// With citext email field, this automatically works case-insensitively
+// 	// "TEST@EXAMPLE.COM", "test@example.com", "Test@Example.com" all match
+// 	if err := utils.Search.EmailSearch(config.DB, email).Find(&contacts).Error; err != nil {
+// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+// 			"error":   true,
+// 			"message": "Failed to search contacts",
+// 			"code":    "INTERNAL_ERROR",
+// 		})
+// 	}
 
-	return c.JSON(fiber.Map{
-		"data": contacts,
-		"meta": fiber.Map{
-			"total": len(contacts),
-			"email": email,
-		},
-	})
-}
+// 	return c.JSON(fiber.Map{
+// 		"data": contacts,
+// 		"meta": fiber.Map{
+// 			"total": len(contacts),
+// 			"email": email,
+// 		},
+// 	})
+// }
 
 // AdvancedContentSearch demonstrates multi-field search
 func AdvancedContentSearch(c *fiber.Ctx) error {

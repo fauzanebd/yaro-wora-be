@@ -12,13 +12,13 @@ import (
 )
 
 // =============================================================================
-// FACILITY MANAGEMENT - ADMIN
+// DESTINATION MANAGEMENT - ADMIN
 // =============================================================================
 
-// CreateFacility creates a new facility
-func CreateFacility(c *fiber.Ctx) error {
-	var facility models.Facility
-	if err := c.BodyParser(&facility); err != nil {
+// CreateDestination creates a new destination
+func CreateDestination(c *fiber.Ctx) error {
+	var destination models.Destination
+	if err := c.BodyParser(&destination); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   true,
 			"message": "Invalid request body",
@@ -26,31 +26,31 @@ func CreateFacility(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := config.DB.Create(&facility).Error; err != nil {
+	if err := config.DB.Create(&destination).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
-			"message": "Failed to create facility",
+			"message": "Failed to create destination",
 			"code":    "INTERNAL_ERROR",
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(facility)
+	return c.Status(fiber.StatusCreated).JSON(destination)
 }
 
-// UpdateFacility updates an existing facility
-func UpdateFacility(c *fiber.Ctx) error {
+// UpdateDestination updates an existing destination
+func UpdateDestination(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	var facility models.Facility
-	if err := config.DB.Where("id = ?", id).First(&facility).Error; err != nil {
+	var destination models.Destination
+	if err := config.DB.Where("id = ?", id).First(&destination).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   true,
-			"message": "Facility not found",
+			"message": "Destination not found",
 			"code":    "NOT_FOUND",
 		})
 	}
 
-	if err := c.BodyParser(&facility); err != nil {
+	if err := c.BodyParser(&destination); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   true,
 			"message": "Invalid request body",
@@ -58,64 +58,64 @@ func UpdateFacility(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := config.DB.Save(&facility).Error; err != nil {
+	if err := config.DB.Save(&destination).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
-			"message": "Failed to update facility",
+			"message": "Failed to update destination",
 			"code":    "INTERNAL_ERROR",
 		})
 	}
 
-	return c.JSON(facility)
+	return c.JSON(destination)
 }
 
-// DeleteFacility deletes a facility
-func DeleteFacility(c *fiber.Ctx) error {
+// DeleteDestination deletes a destination
+func DeleteDestination(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	// First, get the facility to retrieve URLs for R2 deletion
-	var facility models.Facility
-	if err := config.DB.Where("id = ?", id).First(&facility).Error; err != nil {
+	// First, get the destination to retrieve URLs for R2 deletion
+	var destination models.Destination
+	if err := config.DB.Where("id = ?", id).First(&destination).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   true,
-			"message": "Facility not found",
+			"message": "Destination not found",
 			"code":    "NOT_FOUND",
 		})
 	}
 
 	// Delete from database
-	if err := config.DB.Delete(&models.Facility{}, id).Error; err != nil {
+	if err := config.DB.Delete(&models.Destination{}, id).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
-			"message": "Failed to delete facility",
+			"message": "Failed to delete destination",
 			"code":    "INTERNAL_ERROR",
 		})
 	}
 
 	// Delete images from R2 if they are from our R2 bucket
 	if utils.Storage != nil {
-		// Delete main image and thumbnail
-		if err := utils.Storage.DeleteImageWithThumbnailIfR2(facility.ImageURL); err != nil {
+		// Delete main image
+		if err := utils.Storage.DeleteImageWithThumbnailIfR2(destination.ImageURL); err != nil {
 			// Log error but don't fail the request since DB deletion succeeded
 			fmt.Printf("Warning: Failed to delete image from R2: %v\n", err)
 		}
 
 		// Delete images from detail sections
-		if err := utils.Storage.DeleteImagesFromDetailSections(string(facility.FacilityDetailSections)); err != nil {
+		if err := utils.Storage.DeleteImagesFromDetailSections(string(destination.DestinationDetailSections)); err != nil {
 			// Log error but don't fail the request since DB deletion succeeded
-			fmt.Printf("Warning: Failed to delete images from facility detail sections: %v\n", err)
+			fmt.Printf("Warning: Failed to delete images from destination detail sections: %v\n", err)
 		}
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"message": "Facility deleted successfully",
+		"message": "Destination deleted successfully",
 	})
 }
 
-// UpdateFacilityPageContent updates the facility page content (singleton)
-func UpdateFacilityPageContent(c *fiber.Ctx) error {
-	var content models.FacilityPageContent
+// UpdateDestinationPageContent updates the destination page content (singleton)
+func UpdateDestinationPageContent(c *fiber.Ctx) error {
+	var content models.DestinationPageContent
 	if err := c.BodyParser(&content); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   true,
@@ -125,13 +125,13 @@ func UpdateFacilityPageContent(c *fiber.Ctx) error {
 	}
 
 	// Try to find existing content, create if not exists
-	var existingContent models.FacilityPageContent
+	var existingContent models.DestinationPageContent
 	if err := config.DB.First(&existingContent).Error; err != nil {
 		// Create new content
 		if err := config.DB.Create(&content).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error":   true,
-				"message": "Failed to create facility page content",
+				"message": "Failed to create destination page content",
 				"code":    "INTERNAL_ERROR",
 			})
 		}
@@ -143,7 +143,7 @@ func UpdateFacilityPageContent(c *fiber.Ctx) error {
 	if err := config.DB.Save(&content).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
-			"message": "Failed to update facility page content",
+			"message": "Failed to update destination page content",
 			"code":    "INTERNAL_ERROR",
 		})
 	}
@@ -152,12 +152,12 @@ func UpdateFacilityPageContent(c *fiber.Ctx) error {
 }
 
 // =============================================================================
-// FACILITY CATEGORY MANAGEMENT - ADMIN
+// DESTINATION CATEGORY MANAGEMENT - ADMIN
 // =============================================================================
 
-// CreateFacilityCategory creates a new facility category
-func CreateFacilityCategory(c *fiber.Ctx) error {
-	var category models.FacilityCategory
+// CreateDestinationCategory creates a new destination category
+func CreateDestinationCategory(c *fiber.Ctx) error {
+	var category models.DestinationCategory
 	if err := c.BodyParser(&category); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   true,
@@ -169,7 +169,7 @@ func CreateFacilityCategory(c *fiber.Ctx) error {
 	if err := config.DB.Create(&category).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
-			"message": "Failed to create facility category",
+			"message": "Failed to create destination category",
 			"code":    "INTERNAL_ERROR",
 		})
 	}
@@ -177,15 +177,15 @@ func CreateFacilityCategory(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(category)
 }
 
-// UpdateFacilityCategory updates an existing facility category
-func UpdateFacilityCategory(c *fiber.Ctx) error {
+// UpdateDestinationCategory updates an existing destination category
+func UpdateDestinationCategory(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	var category models.FacilityCategory
+	var category models.DestinationCategory
 	if err := config.DB.Where("id = ?", id).First(&category).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   true,
-			"message": "Facility category not found",
+			"message": "Destination category not found",
 			"code":    "NOT_FOUND",
 		})
 	}
@@ -201,7 +201,7 @@ func UpdateFacilityCategory(c *fiber.Ctx) error {
 	if err := config.DB.Save(&category).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
-			"message": "Failed to update facility category",
+			"message": "Failed to update destination category",
 			"code":    "INTERNAL_ERROR",
 		})
 	}
@@ -209,34 +209,34 @@ func UpdateFacilityCategory(c *fiber.Ctx) error {
 	return c.JSON(category)
 }
 
-// DeleteFacilityCategory deletes a facility category
-func DeleteFacilityCategory(c *fiber.Ctx) error {
+// DeleteDestinationCategory deletes a destination category
+func DeleteDestinationCategory(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	if err := config.DB.Delete(&models.FacilityCategory{}, id).Error; err != nil {
+	if err := config.DB.Delete(&models.DestinationCategory{}, id).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
-			"message": "Failed to delete facility category",
+			"message": "Failed to delete destination category",
 			"code":    "INTERNAL_ERROR",
 		})
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
-		"message": "Facility category deleted successfully",
+		"message": "Destination category deleted successfully",
 	})
 }
 
 // =============================================================================
-// FACILITY MANAGEMENT - PUBLIC
+// DESTINATION MANAGEMENT - PUBLIC
 // =============================================================================
 
-// GetFacilities returns all facilities with filtering options
-func GetFacilities(c *fiber.Ctx) error {
-	var facilities []models.Facility
-	query := config.DB.Model(&models.Facility{}).
-		Select("id, name, name_id, short_description, short_description_id, image_url, thumbnail_url, highlights, highlights_id, is_featured, sort_order, category_id, duration, capacity, price").
-		Preload("FacilityCategory")
+// GetDestinations returns all destinations with filtering options
+func GetDestinations(c *fiber.Ctx) error {
+	var destinations []models.Destination
+	query := config.DB.Model(&models.Destination{}).
+		Select("id, title, title_id, short_description, short_description_id, image_url, thumbnail_url, highlights, highlights_id, is_featured, sort_order, category_id").
+		Preload("DestinationCategory")
 
 	if isFeatured := c.Query("featured"); isFeatured == "true" {
 		query = query.Where("is_featured = ?", true)
@@ -276,40 +276,37 @@ func GetFacilities(c *fiber.Ctx) error {
 
 	query = query.Limit(limit).Offset(offset)
 
-	if err := query.Order("sort_order ASC, created_at ASC, is_featured DESC").Find(&facilities).Error; err != nil {
+	if err := query.Order("sort_order ASC, created_at ASC, is_featured DESC").Find(&destinations).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
-			"message": "Failed to fetch facilities data",
+			"message": "Failed to fetch destinations data",
 			"code":    "INTERNAL_ERROR",
 		})
 	}
 
 	// Convert to summary format
-	facilitySummaries := make([]models.FacilitySummary, len(facilities))
-	for i, facility := range facilities {
-		facilitySummaries[i] = models.FacilitySummary{
-			ID:                 facility.ID,
-			Name:               facility.Name,
-			NameID:             facility.NameID,
-			ShortDescription:   facility.ShortDescription,
-			ShortDescriptionID: facility.ShortDescriptionID,
-			ImageURL:           facility.ImageURL,
-			ThumbnailURL:       facility.ThumbnailURL,
-			Highlights:         facility.Highlights,
-			HighlightsID:       facility.HighlightsID,
-			IsFeatured:         facility.IsFeatured,
-			SortOrder:          facility.SortOrder,
-			CategoryID:         facility.CategoryID,
-			FacilityCategory:   facility.FacilityCategory,
-			Duration:           facility.Duration,
-			Capacity:           facility.Capacity,
-			Price:              facility.Price,
+	destinationSummaries := make([]models.DestinationSummary, len(destinations))
+	for i, dest := range destinations {
+		destinationSummaries[i] = models.DestinationSummary{
+			ID:                  dest.ID,
+			Title:               dest.Title,
+			TitleID:             dest.TitleID,
+			ShortDescription:    dest.ShortDescription,
+			ShortDescriptionID:  dest.ShortDescriptionID,
+			ImageURL:            dest.ImageURL,
+			ThumbnailURL:        dest.ThumbnailURL,
+			Highlights:          dest.Highlights,
+			HighlightsID:        dest.HighlightsID,
+			IsFeatured:          dest.IsFeatured,
+			SortOrder:           dest.SortOrder,
+			CategoryID:          dest.CategoryID,
+			DestinationCategory: dest.DestinationCategory,
 		}
 	}
 
 	// Get total count (apply same filters)
 	var total int64
-	countQuery := config.DB.Model(&models.Facility{})
+	countQuery := config.DB.Model(&models.Destination{})
 	if isFeatured := c.Query("featured"); isFeatured == "true" {
 		countQuery = countQuery.Where("is_featured = ?", true)
 	}
@@ -329,8 +326,8 @@ func GetFacilities(c *fiber.Ctx) error {
 	}
 	countQuery.Count(&total)
 
-	// Get categories with counts from FacilityCategory table
-	categories := getFacilityCategoriesFromTable()
+	// Get categories with counts from DestinationCategory table
+	categories := getDestinationCategoriesFromTable()
 
 	// Calculate pagination
 	totalPages := 0
@@ -346,7 +343,7 @@ func GetFacilities(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"data": facilitySummaries,
+		"data": destinationSummaries,
 		"meta": fiber.Map{
 			"total":      total,
 			"categories": categories,
@@ -361,47 +358,47 @@ func GetFacilities(c *fiber.Ctx) error {
 	})
 }
 
-// GetFacilityByID returns a specific facility by ID
-func GetFacilityByID(c *fiber.Ctx) error {
+// GetDestinationByID returns a specific destination by ID
+func GetDestinationByID(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	var facility models.Facility
-	if err := config.DB.Preload("FacilityCategory").Where("id = ?", id).First(&facility).Error; err != nil {
+	var destination models.Destination
+	if err := config.DB.Preload("DestinationCategory").Where("id = ?", id).First(&destination).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   true,
-			"message": "Facility not found",
+			"message": "Destination not found",
 			"code":    "NOT_FOUND",
 		})
 	}
 
 	return c.JSON(fiber.Map{
-		"data": facility,
+		"data": destination,
 	})
 }
 
-// GetFacilityCategories returns all facility categories with counts
-func GetFacilityCategories(c *fiber.Ctx) error {
-	categories := getFacilityCategoriesFromTable()
+// GetDestinationCategories returns all destination categories with counts
+func GetDestinationCategories(c *fiber.Ctx) error {
+	categories := getDestinationCategoriesFromTable()
 
-	var totalFacilities int64
-	config.DB.Model(&models.Facility{}).Count(&totalFacilities)
+	var totalDestinations int64
+	config.DB.Model(&models.Destination{}).Count(&totalDestinations)
 
 	return c.JSON(fiber.Map{
 		"data": categories,
 		"meta": fiber.Map{
-			"total_categories": len(categories),
-			"total_facilities": totalFacilities,
+			"total_categories":   len(categories),
+			"total_destinations": totalDestinations,
 		},
 	})
 }
 
-// GetFacilityPageContent returns the facility page content
-func GetFacilityPageContent(c *fiber.Ctx) error {
-	var content models.FacilityPageContent
+// GetDestinationPageContent returns the destination page content
+func GetDestinationPageContent(c *fiber.Ctx) error {
+	var content models.DestinationPageContent
 	if err := config.DB.First(&content).Error; err != nil {
 		// Return empty content if not found
 		return c.JSON(fiber.Map{
-			"data": models.FacilityPageContent{},
+			"data": models.DestinationPageContent{},
 		})
 	}
 	return c.JSON(fiber.Map{
@@ -409,9 +406,9 @@ func GetFacilityPageContent(c *fiber.Ctx) error {
 	})
 }
 
-// getFacilityCategoriesFromTable returns categories from FacilityCategory table with facility counts
-func getFacilityCategoriesFromTable() []fiber.Map {
-	var catRows []models.FacilityCategory
+// getDestinationCategoriesFromTable returns categories from DestinationCategory table with destination counts
+func getDestinationCategoriesFromTable() []fiber.Map {
+	var catRows []models.DestinationCategory
 	if err := config.DB.Find(&catRows).Error; err != nil {
 		return []fiber.Map{}
 	}
@@ -419,7 +416,7 @@ func getFacilityCategoriesFromTable() []fiber.Map {
 	categories := make([]fiber.Map, 0, len(catRows))
 	for _, cat := range catRows {
 		var count int64
-		config.DB.Model(&models.Facility{}).Where("category_id = ? AND is_featured = ?", cat.ID, false).Count(&count)
+		config.DB.Model(&models.Destination{}).Where("category_id = ? AND is_featured = ?", cat.ID, false).Count(&count)
 
 		categories = append(categories, fiber.Map{
 			"id":             cat.ID,

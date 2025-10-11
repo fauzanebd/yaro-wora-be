@@ -2,32 +2,21 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
-	"time"
 	"yaro-wora-be/config"
 	"yaro-wora-be/models"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
 
-// ContactRequest represents the contact form submission
-type ContactRequest struct {
-	Name          string         `json:"name" validate:"required"`
-	Email         string         `json:"email" validate:"required,email"`
-	Phone         string         `json:"phone"`
-	Subject       string         `json:"subject" validate:"required"`
-	Message       string         `json:"message" validate:"required"`
-	PreferredDate string         `json:"preferred_date"`
-	VisitorType   string         `json:"visitor_type"`  // domestic, locals_sumba, foreigner
-	VisitorCount  map[string]int `json:"visitor_count"` // {adults: int, infants: int}
-}
+// =============================================================================
+// CONTACT MANAGEMENT - ADMIN
+// =============================================================================
 
-// SubmitContact handles contact form submissions
-func SubmitContact(c *fiber.Ctx) error {
-	var req ContactRequest
-	if err := c.BodyParser(&req); err != nil {
+// UpdateContactInfo updates the contact info (singleton)
+func UpdateContactInfo(c *fiber.Ctx) error {
+	var content models.ContactInfo
+	if err := c.BodyParser(&content); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   true,
 			"message": "Invalid request body",
@@ -35,122 +24,119 @@ func SubmitContact(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate required fields
-	if req.Name == "" || req.Email == "" || req.Subject == "" || req.Message == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   true,
-			"message": "Name, email, subject, and message are required",
-			"code":    "BAD_REQUEST",
-		})
-	}
-
-	// Generate reference ID
-	referenceID := fmt.Sprintf("INQ-%s-%s",
-		time.Now().Format("2006"),
-		uuid.New().String()[:8])
-
-	// Convert visitor count to JSON
-	var visitorCountJSON datatypes.JSON
-	if req.VisitorCount != nil {
-		// Convert map to JSON bytes, then to datatypes.JSON
-		if jsonBytes, err := json.Marshal(req.VisitorCount); err == nil {
-			visitorCountJSON = datatypes.JSON(jsonBytes)
+	// Try to find existing content, create if not exists
+	var existingContent models.ContactInfo
+	if err := config.DB.First(&existingContent).Error; err != nil {
+		// Create new content
+		if err := config.DB.Create(&content).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   true,
+				"message": "Failed to create contact info",
+				"code":    "INTERNAL_ERROR",
+			})
 		}
+		return c.Status(fiber.StatusCreated).JSON(content)
 	}
 
-	// Create contact submission
-	submission := models.ContactSubmission{
-		Name:          req.Name,
-		Email:         req.Email,
-		Phone:         req.Phone,
-		Subject:       req.Subject,
-		Message:       req.Message,
-		PreferredDate: req.PreferredDate,
-		VisitorType:   req.VisitorType,
-		VisitorCount:  visitorCountJSON,
-		Status:        "pending",
-		ReferenceID:   referenceID,
-		ResponseSent:  false,
-	}
-
-	if err := config.DB.Create(&submission).Error; err != nil {
+	// Update existing content
+	content.ID = existingContent.ID
+	if err := config.DB.Save(&content).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
-			"message": "Failed to submit contact form",
+			"message": "Failed to update contact info",
 			"code":    "INTERNAL_ERROR",
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"success":                 true,
-		"message":                 "Your inquiry has been submitted successfully. We will contact you within 24 hours.",
-		"reference_id":            referenceID,
-		"estimated_response_time": "24 hours",
-	})
+	return c.JSON(content)
 }
+
+// UpdateContactContent updates the contact content (singleton)
+func UpdateContactContent(c *fiber.Ctx) error {
+	var content models.ContactContent
+	if err := c.BodyParser(&content); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	// Try to find existing content, create if not exists
+	var existingContent models.ContactContent
+	if err := config.DB.First(&existingContent).Error; err != nil {
+		// Create new content
+		if err := config.DB.Create(&content).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   true,
+				"message": "Failed to create general contact content",
+				"code":    "INTERNAL_ERROR",
+			})
+		}
+		return c.Status(fiber.StatusCreated).JSON(content)
+	}
+
+	// Update existing content
+	content.ID = existingContent.ID
+	if err := config.DB.Save(&content).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to update general contact content",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+	return c.JSON(content)
+}
+
+// =============================================================================
+// CONTACT MANAGEMENT - PUBLIC
+// =============================================================================
 
 // GetContactInfo returns contact information and location details
 func GetContactInfo(c *fiber.Ctx) error {
 	var contactInfo models.ContactInfo
 
 	if err := config.DB.First(&contactInfo).Error; err != nil {
+		jsonBytesPhones, _ := json.Marshal([]string{"+62 098 940 974", "+62 903 009 909"})
+		jsonBytesEmails, _ := json.Marshal([]string{"info@yarowora.com", "visit@yarowora.com"})
+		jsonBytesSocialMedia, _ := json.Marshal([]models.SocialMedia{
+			{Name: "Instagram", Handle: "@yarowora_official", URL: "https://www.instagram.com/yarowora_official/", IconURL: ""},
+			{Name: "Facebook", Handle: "Yaro Wora Tourism", URL: "https://www.facebook.com/yarowora.tourism/", IconURL: "https://www.facebook.com/yarowora.tourism/"},
+			{Name: "YouTube", Handle: "Yaro Wora Channel", URL: "https://www.youtube.com/channel/UC-9G-_Hw92gR8x6aI6KU4-w", IconURL: "https://www.youtube.com/channel/UC-9G-_Hw92gR8x6aI6KU4-w"},
+		})
+
 		// Return default contact info if not found in database
 		return c.JSON(fiber.Map{
-			"data": fiber.Map{
-				"address": fiber.Map{
-					"street":      "Yaro Wora Village",
-					"city":        "East Sumba",
-					"province":    "East Nusa Tenggara",
-					"country":     "Indonesia",
-					"postal_code": "87173",
-				},
-				"coordinates": fiber.Map{
-					"latitude":  -9.6234,
-					"longitude": 119.3456,
-				},
-				"contact": fiber.Map{
-					"phones":   []string{"+62 098 940 974", "+62 903 009 909"},
-					"email":    []string{"info@yarowora.com", "visit@yarowora.com"},
-					"whatsapp": "+62 903 009 909",
-				},
-				"social_media": fiber.Map{
-					"instagram": "@yarowora_official",
-					"facebook":  "Yaro Wora Tourism",
-					"youtube":   "Yaro Wora Channel",
-				},
-				"operating_hours": fiber.Map{
-					"monday":    "08:00-17:00",
-					"tuesday":   "08:00-17:00",
-					"wednesday": "08:00-17:00",
-					"thursday":  "08:00-17:00",
-					"friday":    "08:00-17:00",
-					"saturday":  "08:00-16:00",
-					"sunday":    "closed",
-				},
+			"data": models.ContactInfo{
+				AddressPart1:     "Yaro Wora Village",
+				AddressPart1ID:   "Desa Yaro Wora",
+				AddressPart2:     "East Sumba, NTT, Indonesia",
+				AddressPart2ID:   "Sumba Timur, NTT, Indonesia",
+				Latitude:         -9.6234,
+				Longitude:        119.3456,
+				Phones:           datatypes.JSON(jsonBytesPhones),
+				Emails:           datatypes.JSON(jsonBytesEmails),
+				SocialMedia:      datatypes.JSON(jsonBytesSocialMedia),
+				PlanYourVisitURL: "https://yarowora.com/plan-your-visit",
 			},
 		})
 	}
 
 	return c.JSON(fiber.Map{
-		"data": fiber.Map{
-			"address": fiber.Map{
-				"street":      contactInfo.Street,
-				"city":        contactInfo.City,
-				"province":    contactInfo.Province,
-				"country":     contactInfo.Country,
-				"postal_code": contactInfo.PostalCode,
-			},
-			"coordinates": fiber.Map{
-				"latitude":  contactInfo.Latitude,
-				"longitude": contactInfo.Longitude,
-			},
-			"contact": fiber.Map{
-				"phones":   contactInfo.Phones,
-				"email":    contactInfo.Emails,
-				"whatsapp": contactInfo.WhatsApp,
-			},
-			"social_media":    contactInfo.SocialMedia,
-			"operating_hours": contactInfo.OperatingHours,
-		},
+		"data": contactInfo,
+	})
+}
+
+// GetGeneralContactContent returns the general contact content
+func GetGeneralContactContent(c *fiber.Ctx) error {
+	var content models.ContactContent
+	if err := config.DB.First(&content).Error; err != nil {
+		// Return empty content if not found
+		return c.JSON(fiber.Map{
+			"data": models.ContactContent{},
+		})
+	}
+	return c.JSON(fiber.Map{
+		"data": content,
 	})
 }

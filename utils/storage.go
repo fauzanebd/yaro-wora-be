@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -284,6 +285,37 @@ func (s *StorageService) extractKeyFromURL(imageURL string) string {
 	return ""
 }
 
+// IsR2URL checks if the given URL is from our R2 bucket
+func (s *StorageService) IsR2URL(imageURL string) bool {
+	return strings.HasPrefix(imageURL, s.publicURL)
+}
+
+// DeleteImageIfR2 deletes an image from R2 only if the URL is from our R2 bucket
+func (s *StorageService) DeleteImageIfR2(imageURL string) error {
+	if imageURL == "" {
+		return nil // No URL to delete
+	}
+
+	if !s.IsR2URL(imageURL) {
+		return nil // Not an R2 URL, skip deletion
+	}
+
+	return s.DeleteImage(imageURL)
+}
+
+// DeleteImageWithThumbnailIfR2 deletes both an image and its thumbnail from R2 only if the URL is from our R2 bucket
+func (s *StorageService) DeleteImageWithThumbnailIfR2(imageURL string) error {
+	if imageURL == "" {
+		return nil // No URL to delete
+	}
+
+	if !s.IsR2URL(imageURL) {
+		return nil // Not an R2 URL, skip deletion
+	}
+
+	return s.DeleteImageWithThumbnail(imageURL)
+}
+
 // getContentType returns the content type based on file extension
 func getContentType(filename string) string {
 	ext := strings.ToLower(filepath.Ext(filename))
@@ -321,4 +353,112 @@ type UploadResponse struct {
 type ImageDimensions struct {
 	Width  int `json:"width"`
 	Height int `json:"height"`
+}
+
+// StorageAnalytics represents storage usage analytics
+type StorageAnalytics struct {
+	TotalSize      int64   `json:"total_size_bytes"`
+	TotalSizeMB    float64 `json:"total_size_mb"`
+	TotalSizeGB    float64 `json:"total_size_gb"`
+	ObjectCount    int64   `json:"object_count"`
+	StorageLimit   int64   `json:"storage_limit_bytes"`
+	StorageLimitGB float64 `json:"storage_limit_gb"`
+	UsagePercent   float64 `json:"usage_percent"`
+	CanUpload      bool    `json:"can_upload"`
+	RemainingBytes int64   `json:"remaining_bytes"`
+	RemainingMB    float64 `json:"remaining_mb"`
+}
+
+// GetStorageAnalytics retrieves storage usage analytics for the bucket
+func (s *StorageService) GetStorageAnalytics() (*StorageAnalytics, error) {
+	// List all objects in the bucket to calculate total size
+	var totalSize int64
+	var objectCount int64
+
+	// Use ListObjectsV2 to get all objects
+	paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{
+		Bucket: aws.String(s.bucketName),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			return nil, fmt.Errorf("failed to list objects: %v", err)
+		}
+
+		for _, obj := range page.Contents {
+			if obj.Size != nil {
+				totalSize += *obj.Size
+			}
+			objectCount++
+		}
+	}
+
+	// Get storage limit from config (default 1GB)
+	storageLimit := int64(appConfig.AppConfig.StorageLimitGB * 1024 * 1024 * 1024)
+
+	// Calculate analytics
+	totalSizeMB := float64(totalSize) / (1024 * 1024)
+	totalSizeGB := float64(totalSize) / (1024 * 1024 * 1024)
+	storageLimitGB := float64(storageLimit) / (1024 * 1024 * 1024)
+	usagePercent := (float64(totalSize) / float64(storageLimit)) * 100
+	canUpload := totalSize < storageLimit
+	remainingBytes := storageLimit - totalSize
+	remainingMB := float64(remainingBytes) / (1024 * 1024)
+
+	return &StorageAnalytics{
+		TotalSize:      totalSize,
+		TotalSizeMB:    totalSizeMB,
+		TotalSizeGB:    totalSizeGB,
+		ObjectCount:    objectCount,
+		StorageLimit:   storageLimit,
+		StorageLimitGB: storageLimitGB,
+		UsagePercent:   usagePercent,
+		CanUpload:      canUpload,
+		RemainingBytes: remainingBytes,
+		RemainingMB:    remainingMB,
+	}, nil
+}
+
+// CheckStorageLimit checks if storage is within limits before upload
+func (s *StorageService) CheckStorageLimit(fileSize int64) error {
+	analytics, err := s.GetStorageAnalytics()
+	if err != nil {
+		return fmt.Errorf("failed to get storage analytics: %v", err)
+	}
+
+	// Check if adding this file would exceed the limit
+	if analytics.TotalSize+fileSize > analytics.StorageLimit {
+		return fmt.Errorf("upload would exceed storage limit. Current usage: %.2f GB, Limit: %.2f GB",
+			analytics.TotalSizeGB, analytics.StorageLimitGB)
+	}
+
+	return nil
+}
+
+// DeleteImagesFromDetailSections deletes all images from DetailSections JSON that are from R2
+func (s *StorageService) DeleteImagesFromDetailSections(detailSectionsJSON string) error {
+	if detailSectionsJSON == "" {
+		return nil // No detail sections to process
+	}
+
+	// Parse the JSON array
+	var sections []map[string]interface{}
+	if err := json.Unmarshal([]byte(detailSectionsJSON), &sections); err != nil {
+		// If JSON parsing fails, it might not be a valid JSON array, skip deletion
+		return nil
+	}
+
+	// Iterate through each section and delete images if they're from R2
+	for _, section := range sections {
+		if imageURL, ok := section["image_url"].(string); ok && imageURL != "" {
+			// Delete the image and its thumbnail if it's from R2
+			if err := s.DeleteImageWithThumbnailIfR2(imageURL); err != nil {
+				// Log error but don't fail the entire operation
+				fmt.Printf("Warning: Failed to delete image from detail section: %v\n", err)
+			}
+		}
+	}
+
+	return nil
 }

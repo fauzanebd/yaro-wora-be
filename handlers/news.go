@@ -1,40 +1,348 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 	"yaro-wora-be/config"
 	"yaro-wora-be/models"
+	"yaro-wora-be/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-// GetNews returns news articles with filtering options
+// =============================================================================
+// NEWS MANAGEMENT - ADMIN
+// =============================================================================
+
+// CreateNews creates a new news article
+func CreateNews(c *fiber.Ctx) error {
+	var news models.NewsArticle
+	if err := c.BodyParser(&news); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	if err := config.DB.Create(&news).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to create news article",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(news)
+}
+
+// UpdateNews updates an existing news article
+func UpdateNews(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	var news models.NewsArticle
+	if err := config.DB.Where("id = ?", id).First(&news).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   true,
+			"message": "News article not found",
+			"code":    "NOT_FOUND",
+		})
+	}
+
+	if err := c.BodyParser(&news); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	if err := config.DB.Save(&news).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to update news article",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(news)
+}
+
+// DeleteNews deletes a news article
+func DeleteNews(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	// First, get the news article to retrieve URLs for R2 deletion
+	var news models.NewsArticle
+	if err := config.DB.Where("id = ?", id).First(&news).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   true,
+			"message": "News article not found",
+			"code":    "NOT_FOUND",
+		})
+	}
+
+	// Delete from database
+	if err := config.DB.Delete(&models.NewsArticle{}, id).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to delete news article",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	// Delete images from R2 if they are from our R2 bucket
+	if utils.Storage != nil {
+		// Delete main image
+		if err := utils.Storage.DeleteImageIfR2(news.ImageURL); err != nil {
+			// Log error but don't fail the request since DB deletion succeeded
+			fmt.Printf("Warning: Failed to delete image from R2: %v\n", err)
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "News article deleted successfully",
+	})
+}
+
+// UpdateNewsPageContent updates the news page content (singleton)
+func UpdateNewsPageContent(c *fiber.Ctx) error {
+	var content models.NewsPageContent
+	if err := c.BodyParser(&content); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	// Try to find existing content, create if not exists
+	var existingContent models.NewsPageContent
+	if err := config.DB.First(&existingContent).Error; err != nil {
+		// Create new content
+		if err := config.DB.Create(&content).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":   true,
+				"message": "Failed to create news page content",
+				"code":    "INTERNAL_ERROR",
+			})
+		}
+		return c.Status(fiber.StatusCreated).JSON(content)
+	}
+
+	// Update existing content
+	content.ID = existingContent.ID
+	if err := config.DB.Save(&content).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to update news page content",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(content)
+}
+
+// =============================================================================
+// NEWS CATEGORY MANAGEMENT - ADMIN
+// =============================================================================
+
+// CreateNewsCategory creates a new news category
+func CreateNewsCategory(c *fiber.Ctx) error {
+	var category models.NewsCategory
+	if err := c.BodyParser(&category); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	if err := config.DB.Create(&category).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to create news category",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(category)
+}
+
+// UpdateNewsCategory updates an existing news category
+func UpdateNewsCategory(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	var category models.NewsCategory
+	if err := config.DB.Where("id = ?", id).First(&category).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   true,
+			"message": "News category not found",
+			"code":    "NOT_FOUND",
+		})
+	}
+
+	if err := c.BodyParser(&category); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	if err := config.DB.Save(&category).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to update news category",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(category)
+}
+
+// DeleteNewsCategory deletes a news category
+func DeleteNewsCategory(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	if err := config.DB.Delete(&models.NewsCategory{}, id).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to delete news category",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "News category deleted successfully",
+	})
+}
+
+// =============================================================================
+// NEWS AUTHOR MANAGEMENT - ADMIN
+// =============================================================================
+
+// CreateNewsAuthor creates a new news author
+func CreateNewsAuthor(c *fiber.Ctx) error {
+	var author models.NewsAuthor
+	if err := c.BodyParser(&author); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	if err := config.DB.Create(&author).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to create news author",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(author)
+}
+
+// UpdateNewsAuthor updates an existing news author
+func UpdateNewsAuthor(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	var author models.NewsAuthor
+	if err := config.DB.Where("id = ?", id).First(&author).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   true,
+			"message": "News author not found",
+			"code":    "NOT_FOUND",
+		})
+	}
+
+	if err := c.BodyParser(&author); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "Invalid request body",
+			"code":    "BAD_REQUEST",
+		})
+	}
+
+	if err := config.DB.Save(&author).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to update news author",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(author)
+}
+
+// DeleteNewsAuthor deletes a news author
+func DeleteNewsAuthor(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	if err := config.DB.Delete(&models.NewsAuthor{}, id).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   true,
+			"message": "Failed to delete news author",
+			"code":    "INTERNAL_ERROR",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "News author deleted successfully",
+	})
+}
+
+// =============================================================================
+// NEWS MANAGEMENT - PUBLIC
+// =============================================================================
+
+// GetNews returns all news articles with filtering options
 func GetNews(c *fiber.Ctx) error {
-	var articles []models.NewsArticle
-	query := config.DB.Model(&models.NewsArticle{}).Preload("Category")
+	var news []models.NewsArticle
+	query := config.DB.Model(&models.NewsArticle{}).
+		Select("id, title, title_id, excerpt, excerpt_id, image_url, date_published, author_id, category_id, tags, read_time, is_headline").
+		Preload("NewsAuthor").
+		Preload("NewsCategory")
+
+	// Apply headline filter
+	isHeadline := c.Query("headline")
+	if isHeadline != "" {
+		if isHeadline == "true" {
+			query = query.Where("is_headline = ?", true)
+		} else {
+			query = query.Where("is_headline = ?", false)
+		}
+	}
 
 	// Apply category filter
+	// Support comma-separated list, e.g. category=1,2,3
 	if category := c.Query("category"); category != "" {
-		query = query.Where("category_key = ?", category)
+		cats := make([]string, 0)
+		for _, part := range strings.Split(category, ",") {
+			trimmed := strings.TrimSpace(part)
+			if trimmed != "" {
+				cats = append(cats, trimmed)
+			}
+		}
+		if len(cats) == 1 {
+			query = query.Where("category_id = ?", cats[0])
+		} else if len(cats) > 1 {
+			query = query.Where("category_id IN ?", cats)
+		}
 	}
 
-	// Apply featured filter
-	if featured := c.Query("featured"); featured == "true" {
-		query = query.Where("is_headline = ?", true)
+	// Apply author filter
+	if author := c.Query("author"); author != "" {
+		query = query.Where("author_id = ?", author)
 	}
 
-	// Apply search filter
-	if search := c.Query("search"); search != "" {
-		query = query.Where("title ILIKE ? OR excerpt ILIKE ? OR content ILIKE ?",
-			"%"+search+"%", "%"+search+"%", "%"+search+"%")
-	}
-
-	// Apply language filter
-	lang := c.Query("lang", "en")
-	query = query.Where("language = ?", lang)
-
-	// Apply pagination
-	limit := 12 // default
+	// Apply limit and offset for pagination
+	limit := 12
 	if l := c.Query("limit"); l != "" {
 		if limitInt, err := strconv.Atoi(l); err == nil && limitInt > 0 {
 			limit = limitInt
@@ -50,49 +358,85 @@ func GetNews(c *fiber.Ctx) error {
 
 	query = query.Limit(limit).Offset(offset)
 
-	if err := query.Order("is_headline DESC, date_published DESC").Find(&articles).Error; err != nil {
+	if err := query.Order("date_published DESC, created_at DESC").Find(&news).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   true,
-			"message": "Failed to fetch news articles",
+			"message": "Failed to fetch news data",
 			"code":    "INTERNAL_ERROR",
 		})
 	}
 
-	// Get total count
-	var total int64
-	countQuery := config.DB.Model(&models.NewsArticle{}).Where("language = ?", lang)
-	if category := c.Query("category"); category != "" {
-		countQuery = countQuery.Where("category_key = ?", category)
+	// Convert to summary format
+	newsSummaries := make([]models.NewsArticleSummary, len(news))
+	for i, article := range news {
+		newsSummaries[i] = models.NewsArticleSummary{
+			ID:            article.ID,
+			Title:         article.Title,
+			TitleID:       article.TitleID,
+			Excerpt:       article.Excerpt,
+			ExcerptID:     article.ExcerptID,
+			AuthorID:      article.AuthorID,
+			NewsAuthor:    article.NewsAuthor,
+			DatePublished: article.DatePublished,
+			CategoryID:    article.CategoryID,
+			NewsCategory:  article.NewsCategory,
+			ImageURL:      article.ImageURL,
+			Tags:          article.Tags,
+			ReadTime:      article.ReadTime,
+			IsHeadline:    article.IsHeadline,
+		}
 	}
-	if featured := c.Query("featured"); featured == "true" {
+
+	// Get total count (apply same filters)
+	var total int64
+	countQuery := config.DB.Model(&models.NewsArticle{})
+	if isHeadline := c.Query("headline"); isHeadline == "true" {
 		countQuery = countQuery.Where("is_headline = ?", true)
 	}
-	if search := c.Query("search"); search != "" {
-		countQuery = countQuery.Where("title ILIKE ? OR excerpt ILIKE ? OR content ILIKE ?",
-			"%"+search+"%", "%"+search+"%", "%"+search+"%")
+	if category := c.Query("category"); category != "" {
+		cats := make([]string, 0)
+		for _, part := range strings.Split(category, ",") {
+			trimmed := strings.TrimSpace(part)
+			if trimmed != "" {
+				cats = append(cats, trimmed)
+			}
+		}
+		if len(cats) == 1 {
+			countQuery = countQuery.Where("category_id = ?", cats[0])
+		} else if len(cats) > 1 {
+			countQuery = countQuery.Where("category_id IN ?", cats)
+		}
+	}
+	if author := c.Query("author"); author != "" {
+		countQuery = countQuery.Where("author_id = ?", author)
 	}
 	countQuery.Count(&total)
 
-	// Get featured count
-	var featuredCount int64
-	config.DB.Model(&models.NewsArticle{}).Where("is_headline = ? AND language = ?", true, lang).Count(&featuredCount)
+	// Get categories with counts from NewsCategory table
+	categories := getNewsCategoriesFromTable()
 
-	// Get categories with counts
-	categories := getNewsCategoriesWithCounts(lang)
+	// Get authors with counts from NewsAuthor table
+	authors := getNewsAuthorsFromTable()
 
 	// Calculate pagination
-	totalPages := int(total) / limit
-	if int(total)%limit != 0 {
-		totalPages++
+	totalPages := 0
+	if limit > 0 {
+		totalPages = int(total) / limit
+		if int(total)%limit != 0 {
+			totalPages++
+		}
 	}
-	currentPage := (offset / limit) + 1
+	currentPage := 1
+	if limit > 0 {
+		currentPage = (offset / limit) + 1
+	}
 
 	return c.JSON(fiber.Map{
-		"data": articles,
+		"data": newsSummaries,
 		"meta": fiber.Map{
-			"total":          total,
-			"featured_count": featuredCount,
-			"categories":     categories,
+			"total":      total,
+			"categories": categories,
+			"authors":    authors,
 			"pagination": fiber.Map{
 				"current_page": currentPage,
 				"per_page":     limit,
@@ -104,58 +448,12 @@ func GetNews(c *fiber.Ctx) error {
 	})
 }
 
-// GetNewsCategories returns all news categories with article counts
-func GetNewsCategories(c *fiber.Ctx) error {
-	var categories []models.NewsCategory
-
-	if err := config.DB.Order("sort_order ASC").Find(&categories).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   true,
-			"message": "Failed to fetch news categories",
-			"code":    "INTERNAL_ERROR",
-		})
-	}
-
-	lang := c.Query("lang", "en")
-
-	// Add count for each category
-	result := make([]fiber.Map, len(categories))
-	var totalArticles int64
-
-	for i, category := range categories {
-		var count int64
-		config.DB.Model(&models.NewsArticle{}).Where("category_key = ? AND language = ?", category.Key, lang).Count(&count)
-
-		result[i] = fiber.Map{
-			"key":            category.Key,
-			"name":           category.Name,
-			"name_id":        category.NameID,
-			"description":    category.Description,
-			"description_id": category.DescriptionID,
-			"count":          count,
-			"color":          category.Color,
-			"icon":           category.Icon,
-		}
-
-		totalArticles += count
-	}
-
-	return c.JSON(fiber.Map{
-		"data": result,
-		"meta": fiber.Map{
-			"total_categories": len(categories),
-			"total_articles":   totalArticles,
-		},
-	})
-}
-
-// GetNewsByID returns full article content with related articles
+// GetNewsByID returns a specific news article by ID
 func GetNewsByID(c *fiber.Ctx) error {
 	id := c.Params("id")
-	lang := c.Query("lang", "en")
 
-	var article models.NewsArticle
-	if err := config.DB.Preload("Category").Where("id = ? AND language = ?", id, lang).First(&article).Error; err != nil {
+	var news models.NewsArticle
+	if err := config.DB.Preload("NewsAuthor").Preload("NewsCategory").Where("id = ?", id).First(&news).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   true,
 			"message": "News article not found",
@@ -163,141 +461,117 @@ func GetNewsByID(c *fiber.Ctx) error {
 		})
 	}
 
-	// Increment view count
-	config.DB.Model(&article).Update("view_count", article.ViewCount+1)
-
-	// Get related articles (same category, different articles)
-	var relatedArticles []models.NewsArticle
-	config.DB.Where("category_key = ? AND id != ? AND language = ?", article.CategoryKey, id, lang).
-		Select("id, title, excerpt, featured_image, date_published, category_key").
-		Limit(3).
-		Order("date_published DESC").
-		Find(&relatedArticles)
-
-	related := make([]fiber.Map, len(relatedArticles))
-	for i, rel := range relatedArticles {
-		related[i] = fiber.Map{
-			"id":             rel.ID,
-			"title":          rel.Title,
-			"excerpt":        rel.Excerpt,
-			"featured_image": rel.FeaturedImage,
-			"date_published": rel.DatePublished,
-			"category":       rel.CategoryKey,
-		}
-	}
-
-	// Build author social links
-	authorSocial := make(map[string]interface{})
-	if len(article.AuthorSocial) > 0 {
-		// AuthorSocial is datatypes.JSON, we can use it directly or unmarshal it
-		authorSocial = make(map[string]interface{})
-	}
-
-	// Build SEO data
-	seoKeywords := make([]string, 0)
-	if len(article.SEOKeywords) > 0 {
-		// SEOKeywords is datatypes.JSON, we can use it directly or unmarshal it
-		seoKeywords = make([]string, 0)
-	}
-
-	response := fiber.Map{
-		"id":         article.ID,
-		"title":      article.Title,
-		"title_id":   article.TitleID,
-		"excerpt":    article.Excerpt,
-		"excerpt_id": article.ExcerptID,
-		"content":    article.Content,
-		"content_id": article.ContentID,
-		"author": fiber.Map{
-			"name":         article.AuthorName,
-			"avatar":       article.AuthorAvatar,
-			"bio":          article.AuthorBio,
-			"email":        article.AuthorEmail,
-			"social_links": authorSocial,
-		},
-		"date_published":   article.DatePublished,
-		"date_updated":     article.UpdatedAt,
-		"category":         article.CategoryKey,
-		"featured_image":   article.FeaturedImage,
-		"image_gallery":    article.ImageGallery,
-		"tags":             article.Tags,
-		"read_time":        article.ReadTime,
-		"is_headline":      article.IsHeadline,
-		"view_count":       article.ViewCount + 1, // Return incremented count
-		"related_articles": related,
-		"seo": fiber.Map{
-			"meta_title":       article.SEOMetaTitle,
-			"meta_description": article.SEOMetaDesc,
-			"keywords":         seoKeywords,
-			"canonical_url":    article.CanonicalURL,
-		},
-		"language": article.Language,
-	}
-
 	return c.JSON(fiber.Map{
-		"data": response,
+		"data": news,
 	})
 }
 
-// GetFeaturedNews returns the current featured/headline article
-func GetFeaturedNews(c *fiber.Ctx) error {
-	lang := c.Query("lang", "en")
+// GetNewsCategories returns all news categories with counts
+func GetNewsCategories(c *fiber.Ctx) error {
+	categories := getNewsCategoriesFromTable()
 
-	var article models.NewsArticle
-	if err := config.DB.Where("is_headline = ? AND language = ?", true, lang).
-		Order("date_published DESC").
-		First(&article).Error; err != nil {
+	var totalNews int64
+	config.DB.Model(&models.NewsArticle{}).Count(&totalNews)
+
+	return c.JSON(fiber.Map{
+		"data": categories,
+		"meta": fiber.Map{
+			"total_categories": len(categories),
+			"total_news":       totalNews,
+		},
+	})
+}
+
+// GetNewsAuthors returns all news authors with counts
+func GetNewsAuthors(c *fiber.Ctx) error {
+	authors := getNewsAuthorsFromTable()
+
+	var totalNews int64
+	config.DB.Model(&models.NewsArticle{}).Count(&totalNews)
+
+	return c.JSON(fiber.Map{
+		"data": authors,
+		"meta": fiber.Map{
+			"total_authors": len(authors),
+			"total_news":    totalNews,
+		},
+	})
+}
+
+// GetNewsAuthorByID returns a specific news author by ID
+func GetNewsAuthorByID(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	var author models.NewsAuthor
+	if err := config.DB.Where("id = ?", id).First(&author).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   true,
-			"message": "Featured article not found",
+			"message": "News author not found",
 			"code":    "NOT_FOUND",
 		})
 	}
 
-	response := fiber.Map{
-		"id":             article.ID,
-		"title":          article.Title,
-		"excerpt":        article.Excerpt,
-		"featured_image": article.FeaturedImage,
-		"author": fiber.Map{
-			"name":   article.AuthorName,
-			"avatar": article.AuthorAvatar,
-		},
-		"date_published": article.DatePublished,
-		"category":       article.CategoryKey,
-		"read_time":      article.ReadTime,
-		"view_count":     article.ViewCount,
-	}
-
 	return c.JSON(fiber.Map{
-		"data": response,
+		"data": author,
 	})
 }
 
-// Helper function to get news categories with counts
-func getNewsCategoriesWithCounts(lang string) []fiber.Map {
-	type CategoryCount struct {
-		Key   string
-		Name  string
-		Count int64
+// GetNewsPageContent returns the news page content
+func GetNewsPageContent(c *fiber.Ctx) error {
+	var content models.NewsPageContent
+	if err := config.DB.First(&content).Error; err != nil {
+		// Return empty content if not found
+		return c.JSON(fiber.Map{
+			"data": models.NewsPageContent{},
+		})
+	}
+	return c.JSON(fiber.Map{
+		"data": content,
+	})
+}
+
+// getNewsCategoriesFromTable returns categories from NewsCategory table with news counts
+func getNewsCategoriesFromTable() []fiber.Map {
+	var catRows []models.NewsCategory
+	if err := config.DB.Find(&catRows).Error; err != nil {
+		return []fiber.Map{}
 	}
 
-	var results []CategoryCount
-	config.DB.Table("news_categories").
-		Select("news_categories.key, news_categories.name, COUNT(news_articles.id) as count").
-		Joins("LEFT JOIN news_articles ON news_categories.key = news_articles.category_key AND news_articles.language = ?", lang).
-		Group("news_categories.key, news_categories.name").
-		Order("news_categories.sort_order ASC").
-		Scan(&results)
+	categories := make([]fiber.Map, 0, len(catRows))
+	for _, cat := range catRows {
+		var count int64
+		config.DB.Model(&models.NewsArticle{}).Where("category_id = ?", cat.ID).Count(&count)
 
-	categories := make([]fiber.Map, len(results))
-	for i, result := range results {
-		categories[i] = fiber.Map{
-			"key":   result.Key,
-			"name":  result.Name,
-			"count": result.Count,
-		}
+		categories = append(categories, fiber.Map{
+			"id":             cat.ID,
+			"name":           cat.Name,
+			"name_id":        cat.NameID,
+			"description":    cat.Description,
+			"description_id": cat.DescriptionID,
+			"count":          count,
+		})
 	}
-
 	return categories
+}
+
+// getNewsAuthorsFromTable returns authors from NewsAuthor table with news counts
+func getNewsAuthorsFromTable() []fiber.Map {
+	var authorRows []models.NewsAuthor
+	if err := config.DB.Find(&authorRows).Error; err != nil {
+		return []fiber.Map{}
+	}
+
+	authors := make([]fiber.Map, 0, len(authorRows))
+	for _, author := range authorRows {
+		var count int64
+		config.DB.Model(&models.NewsArticle{}).Where("author_id = ?", author.ID).Count(&count)
+
+		authors = append(authors, fiber.Map{
+			"id":     author.ID,
+			"name":   author.Name,
+			"avatar": author.Avatar,
+			"count":  count,
+		})
+	}
+	return authors
 }

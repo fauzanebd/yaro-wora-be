@@ -40,7 +40,8 @@ type Config struct {
 	APIVersion string
 
 	// Upload
-	MaxFileUploadSize int // in bytes
+	MaxFileUploadSize int     // in bytes
+	StorageLimitGB    float64 // in GB
 }
 
 var AppConfig *Config
@@ -82,6 +83,7 @@ func LoadConfig() {
 
 		// Upload - Default 4MB (4 * 1024 * 1024 = 4194304 bytes)
 		MaxFileUploadSize: getEnvAsInt("MAX_FILE_UPLOAD_SIZE_IN_BYTES", 4194304),
+		StorageLimitGB:    getEnvAsFloat("STORAGE_LIMIT_GB", 1.0), // Default 1GB
 	}
 }
 
@@ -96,6 +98,15 @@ func getEnvAsInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvAsFloat(key string, defaultValue float64) float64 {
+	if value := os.Getenv(key); value != "" {
+		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
+			return floatValue
 		}
 	}
 	return defaultValue

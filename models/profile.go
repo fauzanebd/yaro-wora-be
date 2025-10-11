@@ -2,21 +2,32 @@ package models
 
 import "gorm.io/datatypes"
 
-type Profile struct {
+type ProfilePageContent struct {
 	BaseModel
-	Title             string         `json:"title" gorm:"not null"`
-	Description       string         `json:"description" gorm:"type:text"`
-	VisionTitle       string         `json:"vision_title"`
-	VisionContent     string         `json:"vision_content" gorm:"type:text"`
-	MissionTitle      string         `json:"mission_title"`
-	MissionContent    string         `json:"mission_content" gorm:"type:text"`
-	ObjectivesTitle   string         `json:"objectives_title"`
-	ObjectivesContent string         `json:"objectives_content" gorm:"type:text"`
-	FeaturedImages    datatypes.JSON `json:"featured_images" gorm:"type:jsonb"` // array of Image objects
+	Title                  string         `json:"title" gorm:"not null"`
+	TitleID                string         `json:"title_id"`
+	HeaderImageURL         string         `json:"header_image_url"`
+	Subtitle               string         `json:"subtitle" gorm:"type:text"`
+	SubtitleID             string         `json:"subtitle_id"`
+	BriefSectionTitle      string         `json:"brief_section_title"`
+	BriefSectionTitleID    string         `json:"brief_section_title_id"`
+	BriefSectionContent    string         `json:"brief_section_content" gorm:"type:text"`
+	BriefSectionContentID  string         `json:"brief_section_content_id"`
+	BriefSectionImageURL   string         `json:"brief_section_image_url"`
+	ProfileSections        datatypes.JSON `json:"profile_sections" gorm:"type:jsonb"` // array of ProfileSection objects
+	CTASectionTitle        string         `json:"cta_section_title"`
+	CTASectionTitleID      string         `json:"cta_section_title_id"`
+	CTASectionText         string         `json:"cta_section_text"`
+	CTASectionTextID       string         `json:"cta_section_text_id"`
+	CTASectionButtonText   string         `json:"cta_section_button_text"`
+	CTASectionButtonTextID string         `json:"cta_section_button_text_id"`
+	CTASectionButtonURL    string         `json:"cta_section_button_url"`
 }
 
-// VisionMissionObjective represents the structured content
-type VisionMissionObjective struct {
-	Title   string `json:"title"`
-	Content string `json:"content"`
+type ProfileSection struct {
+	Title     string `json:"title"`
+	TitleID   string `json:"title_id"`
+	Content   string `json:"content" gorm:"type:text"` // will be rendered as markdown
+	ContentID string `json:"content_id"`
+	ImageURL  string `json:"image_url"`
 }

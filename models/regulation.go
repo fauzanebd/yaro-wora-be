@@ -1,37 +1,44 @@
 package models
 
 import (
-	"time"
-
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
+type RegulationPageContent struct {
+	BaseModel
+	HeroImageURL          string `json:"hero_image_url"`
+	HeroImageThumbnailURL string `json:"hero_image_thumbnail_url"`
+	Title                 string `json:"title"`
+	TitleID               string `json:"title_id"`
+	Subtitle              string `json:"subtitle"`
+	SubtitleID            string `json:"subtitle_id"`
+	CTATitle              string `json:"cta_title"`
+	CTATitleID            string `json:"cta_title_id"`
+	CTADescription        string `json:"cta_description"`
+	CTADescriptionID      string `json:"cta_description_id"`
+	CTAButtonText         string `json:"cta_button_text"`
+	CTAButtonTextID       string `json:"cta_button_text_id"`
+	CTAButtonURL          string `json:"cta_button_url"`
+}
+
 type RegulationCategory struct {
-	Key           string         `json:"key" gorm:"primaryKey;type:citext"`
-	Name          string         `json:"name" gorm:"type:citext;not null"`
-	NameID        string         `json:"name_id"`
-	Description   string         `json:"description"`
-	DescriptionID string         `json:"description_id"`
-	Icon          string         `json:"icon"`
-	Color         string         `json:"color" gorm:"default:#6b7280"`
-	SortOrder     int            `json:"sort_order" gorm:"default:0"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `json:"-" gorm:"index"`
+	BaseModel
+	Name          string `json:"name" gorm:"type:citext;not null"`
+	NameID        string `json:"name_id"`
+	Description   string `json:"description"`
+	DescriptionID string `json:"description_id"`
 }
 
 type Regulation struct {
 	BaseModel
-	ID           string             `json:"id" gorm:"primaryKey;type:text"`
-	CategoryKey  string             `json:"category_key" gorm:"type:citext"`
-	Category     RegulationCategory `json:"category" gorm:"foreignKey:CategoryKey;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Question     string             `json:"question" gorm:"not null"`
-	Answer       string             `json:"answer" gorm:"type:text;not null"`
-	SearchVector string             `json:"-" gorm:"type:tsvector;index:,type:gin"`
-	Priority     int                `json:"priority" gorm:"default:0"`
-	IsActive     bool               `json:"is_active" gorm:"default:true"`
-	Tags         datatypes.JSON     `json:"tags" gorm:"type:jsonb"` // array of strings
+	CategoryID         uint               `json:"category_id"`
+	RegulationCategory RegulationCategory `json:"regulation_category" gorm:"foreignKey:CategoryID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Question           string             `json:"question" gorm:"not null"`
+	QuestionID         string             `json:"question_id" gorm:"type:text"`
+	Answer             string             `json:"answer" gorm:"type:text;not null"`
+	AnswerID           string             `json:"answer_id" gorm:"type:text"`
+	SearchVectorEN     string             `json:"-" gorm:"type:tsvector;index:,type:gin;column:search_vector_en"`
+	SearchVectorID     string             `json:"-" gorm:"type:tsvector;index:,type:gin;column:search_vector_id"`
 }
 
 func (RegulationCategory) TableName() string {
@@ -55,9 +62,13 @@ func (r *Regulation) BeforeUpdate(tx *gorm.DB) error {
 func (r *Regulation) updateSearchVector(tx *gorm.DB) error {
 	sql := `
 		UPDATE regulations 
-		SET search_vector = 
-			setweight(to_tsvector('english', COALESCE(question, '')), 'A') ||
-			setweight(to_tsvector('english', COALESCE(answer, '')), 'B')
+		SET 
+			search_vector_en = 
+				setweight(to_tsvector('english', COALESCE(question, '')), 'A') ||
+				setweight(to_tsvector('english', COALESCE(answer, '')), 'B'),
+			search_vector_id = 
+				setweight(to_tsvector('simple', COALESCE(question_id, '')), 'A') ||
+				setweight(to_tsvector('simple', COALESCE(answer_id, '')), 'B')
 		WHERE id = ?
 	`
 	return tx.Exec(sql, r.ID).Error
