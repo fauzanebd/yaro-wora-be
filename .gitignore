@@ -63,7 +63,6 @@ coverage.html
 docs/
 
 # scripts
-scripts/*.sh
 scripts/*.service
 scripts/*.production
 scripts/*.env.example
