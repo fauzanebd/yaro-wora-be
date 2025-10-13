@@ -36,7 +36,7 @@ setup_cron() {
     
     if [ $? -eq 0 ]; then
         log "${GREEN}✅ Cron job added successfully!${NC}"
-        log "Backup schedule: $(echo ${schedule})"
+        log "Backup schedule: ${schedule}"
         log "Log file: ${CRON_LOG}"
     else
         log "${RED}❌ Failed to add cron job!${NC}"
