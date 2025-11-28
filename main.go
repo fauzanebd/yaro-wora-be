@@ -43,7 +43,7 @@ func main() {
 		float64(config.AppConfig.MaxFileUploadSize)/(1024*1024))
 
 	app := fiber.New(fiber.Config{
-		BodyLimit: config.AppConfig.MaxFileUploadSize, // Set max body size from config (default 20MB)
+		// BodyLimit: config.AppConfig.MaxFileUploadSize, // Set max body size from config (default 20MB)
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {

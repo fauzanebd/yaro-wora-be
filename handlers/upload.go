@@ -14,6 +14,7 @@ import (
 
 // UploadContent handles file uploads to Cloudflare R2
 func UploadContent(c *fiber.Ctx) error {
+
 	// Get uploaded file
 	file, err := c.FormFile("file")
 	if err != nil {
