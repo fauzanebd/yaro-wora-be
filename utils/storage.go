@@ -158,9 +158,28 @@ func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, fo
 		shouldConvertToWebP := format == "jpeg" || format == "png"
 
 		if shouldConvertToWebP {
-			// Convert to WebP with lossless quality
 			var webpBuf bytes.Buffer
-			err = webp.Encode(&webpBuf, img, &webp.Options{Quality: 100})
+
+			options := &webp.Options{
+				Quality: 90, //90 is usually visually indistinguishable for photos
+			}
+
+			if format == "png" {
+				// PNGs usually contain text/graphics requiring perfect crispness.
+				// WE MUST USE LOSSLESS here.
+				options.Lossless = true
+				// Quality in Lossless mode controls compression effort (CPU time),
+				// not image quality. 100 = max compression effort, same visual output.
+				options.Quality = 90
+			} else {
+				// JPEGs are photographs. Converting JPEG to Lossless WebP
+				// often makes the file LARGER than the original.
+				// We use high-quality Lossy here.
+				options.Lossless = false
+				options.Quality = 90
+			}
+
+			err = webp.Encode(&webpBuf, img, options)
 			if err != nil {
 				return nil, fmt.Errorf("failed to encode image to WebP: %v", err)
 			}
