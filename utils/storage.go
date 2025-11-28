@@ -20,8 +20,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/chai2010/webp"
 	"github.com/disintegration/imaging"
 	"github.com/google/uuid"
+	_ "golang.org/x/image/webp" // WebP decoder
 )
 
 type StorageService struct {
@@ -108,15 +110,12 @@ func (s *StorageService) UploadImage(file *multipart.FileHeader, folder string) 
 }
 
 // UploadImageWithThumbnail uploads an image and its thumbnail to R2, returns URLs and dimensions
+// JPEG/JPG/PNG images are converted to WebP format before upload
 func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, folder string) (*UploadResponse, error) {
 	// Generate unique filename
 	ext := filepath.Ext(file.Filename)
 	baseFilename := strings.TrimSuffix(file.Filename, ext)
 	uniqueID := uuid.New().String()[:8]
-	filename := fmt.Sprintf("%s_%s%s", baseFilename, uniqueID, ext)
-
-	// Create full path
-	key := fmt.Sprintf("%s/%s", folder, filename)
 
 	// Open and read file
 	src, err := file.Open()
@@ -130,16 +129,21 @@ func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, fo
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}
 
-	// Determine content type
-	contentType := getContentType(file.Filename)
-
-	// Check if file is SVG - skip thumbnail creation for SVG files
+	// Check if file is SVG - skip conversion and thumbnail creation for SVG files
 	isSVG := strings.ToLower(ext) == ".svg"
 
 	var width, height int
 	var thumbnailURL string
+	var finalFileContent []byte
+	var finalExt string
+	var finalContentType string
 
-	if !isSVG {
+	if isSVG {
+		// For SVG, keep original content and extension
+		finalFileContent = fileContent
+		finalExt = ext
+		finalContentType = "image/svg+xml"
+	} else {
 		// Decode image to get dimensions for non-SVG files
 		img, format, err := image.Decode(bytes.NewReader(fileContent))
 		if err != nil {
@@ -149,6 +153,26 @@ func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, fo
 		bounds := img.Bounds()
 		width = bounds.Dx()
 		height = bounds.Dy()
+
+		// Determine if we need to convert to WebP
+		shouldConvertToWebP := format == "jpeg" || format == "png"
+
+		if shouldConvertToWebP {
+			// Convert to WebP with lossless quality
+			var webpBuf bytes.Buffer
+			err = webp.Encode(&webpBuf, img, &webp.Options{Quality: 100})
+			if err != nil {
+				return nil, fmt.Errorf("failed to encode image to WebP: %v", err)
+			}
+			finalFileContent = webpBuf.Bytes()
+			finalExt = ".webp"
+			finalContentType = "image/webp"
+		} else {
+			// Keep original format (WebP, GIF, etc.)
+			finalFileContent = fileContent
+			finalExt = ext
+			finalContentType = getContentType(file.Filename)
+		}
 
 		// Generate thumbnail (10% of original size)
 		thumbnailWidth := width / 10
@@ -162,30 +186,44 @@ func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, fo
 
 		thumbnail := imaging.Resize(img, thumbnailWidth, thumbnailHeight, imaging.Lanczos)
 
-		// Encode thumbnail to bytes
+		// Encode thumbnail to WebP for JPEG/PNG, or keep original format for others
 		var thumbnailBuf bytes.Buffer
-		switch format {
-		case "jpeg", "jpg":
-			err = imaging.Encode(&thumbnailBuf, thumbnail, imaging.JPEG)
-		case "png":
-			err = imaging.Encode(&thumbnailBuf, thumbnail, imaging.PNG)
-		case "gif":
-			err = imaging.Encode(&thumbnailBuf, thumbnail, imaging.GIF)
-		default:
-			err = imaging.Encode(&thumbnailBuf, thumbnail, imaging.JPEG)
+		var thumbnailExt string
+		var thumbnailContentType string
+
+		if shouldConvertToWebP {
+			// Encode thumbnail as WebP
+			err = webp.Encode(&thumbnailBuf, thumbnail, &webp.Options{Quality: 85})
+			thumbnailExt = ".webp"
+			thumbnailContentType = "image/webp"
+		} else {
+			// Keep original format
+			switch format {
+			case "webp":
+				err = webp.Encode(&thumbnailBuf, thumbnail, &webp.Options{Quality: 85})
+				thumbnailContentType = "image/webp"
+			case "gif":
+				err = imaging.Encode(&thumbnailBuf, thumbnail, imaging.GIF)
+				thumbnailContentType = "image/gif"
+			default:
+				err = imaging.Encode(&thumbnailBuf, thumbnail, imaging.JPEG)
+				thumbnailContentType = "image/jpeg"
+			}
+			thumbnailExt = finalExt
 		}
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode thumbnail: %v", err)
 		}
 
 		// Upload thumbnail
-		thumbnailFilename := fmt.Sprintf("%s_%s_thumb%s", baseFilename, uniqueID, ext)
+		thumbnailFilename := fmt.Sprintf("%s_%s_thumb%s", baseFilename, uniqueID, thumbnailExt)
 		thumbnailKey := fmt.Sprintf("%s/%s", folder, thumbnailFilename)
 		_, err = s.client.PutObject(context.TODO(), &s3.PutObjectInput{
 			Bucket:      aws.String(s.bucketName),
 			Key:         aws.String(thumbnailKey),
 			Body:        bytes.NewReader(thumbnailBuf.Bytes()),
-			ContentType: aws.String(contentType),
+			ContentType: aws.String(thumbnailContentType),
 			ACL:         "public-read",
 		})
 		if err != nil {
@@ -196,16 +234,20 @@ func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, fo
 		thumbnailURL = fmt.Sprintf("%s/%s", s.publicURL, thumbnailKey)
 	}
 
-	// Upload original image
+	// Create filename with final extension
+	filename := fmt.Sprintf("%s_%s%s", baseFilename, uniqueID, finalExt)
+	key := fmt.Sprintf("%s/%s", folder, filename)
+
+	// Upload final image (original for SVG, converted/original for others)
 	_, err = s.client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket:      aws.String(s.bucketName),
 		Key:         aws.String(key),
-		Body:        bytes.NewReader(fileContent),
-		ContentType: aws.String(contentType),
+		Body:        bytes.NewReader(finalFileContent),
+		ContentType: aws.String(finalContentType),
 		ACL:         "public-read",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to upload original image: %v", err)
+		return nil, fmt.Errorf("failed to upload image: %v", err)
 	}
 
 	// Generate public URL
@@ -214,7 +256,7 @@ func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, fo
 	response := &UploadResponse{
 		Success:  true,
 		FileURL:  imageURL,
-		FileSize: file.Size,
+		FileSize: int64(len(finalFileContent)), // Use actual uploaded file size
 	}
 
 	// Only add thumbnail URL and dimensions for non-SVG files
