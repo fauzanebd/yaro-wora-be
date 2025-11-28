@@ -154,6 +154,15 @@ func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, fo
 		width = bounds.Dx()
 		height = bounds.Dy()
 
+		// Resize large images before conversion for better performance
+		const maxDimension = 2048
+		if width > maxDimension || height > maxDimension {
+			img = imaging.Fit(img, maxDimension, maxDimension, imaging.Lanczos)
+			bounds = img.Bounds()
+			width = bounds.Dx()
+			height = bounds.Dy()
+		}
+
 		// Determine if we need to convert to WebP
 		shouldConvertToWebP := format == "jpeg" || format == "png"
 
@@ -161,7 +170,7 @@ func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, fo
 			var webpBuf bytes.Buffer
 
 			options := &webp.Options{
-				Quality: 90, //90 is usually visually indistinguishable for photos
+				Quality: 85,
 			}
 
 			if format == "png" {
@@ -176,7 +185,7 @@ func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, fo
 				// often makes the file LARGER than the original.
 				// We use high-quality Lossy here.
 				options.Lossless = false
-				options.Quality = 90
+				options.Quality = 85
 			}
 
 			err = webp.Encode(&webpBuf, img, options)
@@ -188,9 +197,31 @@ func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, fo
 			finalContentType = "image/webp"
 		} else {
 			// Keep original format (WebP, GIF, etc.)
-			finalFileContent = fileContent
+			// But re-encode it if we resized it
+			if width != bounds.Dx() || height != bounds.Dy() {
+				var buf bytes.Buffer
+				switch format {
+				case "webp":
+					err = webp.Encode(&buf, img, &webp.Options{Quality: 85})
+					finalContentType = "image/webp"
+				case "gif":
+					err = imaging.Encode(&buf, img, imaging.GIF)
+					finalContentType = "image/gif"
+				default:
+					err = imaging.Encode(&buf, img, imaging.JPEG)
+					finalContentType = "image/jpeg"
+				}
+				if err != nil {
+					return nil, fmt.Errorf("failed to re-encode resized image: %v", err)
+				}
+				finalFileContent = buf.Bytes()
+			} else {
+				finalFileContent = fileContent
+			}
 			finalExt = ext
-			finalContentType = getContentType(file.Filename)
+			if finalContentType == "" {
+				finalContentType = getContentType(file.Filename)
+			}
 		}
 
 		// Generate thumbnail (10% of original size)
@@ -212,14 +243,14 @@ func (s *StorageService) UploadImageWithThumbnail(file *multipart.FileHeader, fo
 
 		if shouldConvertToWebP {
 			// Encode thumbnail as WebP
-			err = webp.Encode(&thumbnailBuf, thumbnail, &webp.Options{Quality: 85})
+			err = webp.Encode(&thumbnailBuf, thumbnail, &webp.Options{Quality: 80})
 			thumbnailExt = ".webp"
 			thumbnailContentType = "image/webp"
 		} else {
 			// Keep original format
 			switch format {
 			case "webp":
-				err = webp.Encode(&thumbnailBuf, thumbnail, &webp.Options{Quality: 85})
+				err = webp.Encode(&thumbnailBuf, thumbnail, &webp.Options{Quality: 80})
 				thumbnailContentType = "image/webp"
 			case "gif":
 				err = imaging.Encode(&thumbnailBuf, thumbnail, imaging.GIF)
